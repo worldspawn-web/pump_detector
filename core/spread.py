@@ -20,10 +20,12 @@ def scan_market_for_signals():
         logging.debug(f"Обрабатываем: {base_symbol}")
 
         mexc_price = get_mexc_price(full_symbol)
+        time.sleep(1)
+
         dex_data = get_dex_data_by_symbol(base_symbol)
+        time.sleep(1)
 
         if not dex_data or not mexc_price:
-            time.sleep(0.5)
             continue
 
         spread = calculate_spread(dex_data['price'], mexc_price)
@@ -39,8 +41,6 @@ def scan_market_for_signals():
                 "spread": spread,
                 "dex_volume": dex_data['volume']
             })
-
-        time.sleep(0.5)
 
     logging.info(f"Анализ завершён. Найдено сигналов: {len(results)}")
     return results
