@@ -1,4 +1,4 @@
-from aiogram import Router, types
+from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import CommandStart
 
