@@ -10,7 +10,7 @@ router = Router()
 async def cmd_start(message: Message):
     await message.answer("🔍 Ищу сигналы по всем парам...")
 
-    signals = scan_market_for_signals()
+    signals = await scan_market_for_signals()
 
     if not signals:
         await message.answer("Пока нет подходящих сигналов (спред < 10% или низкий объём).")
