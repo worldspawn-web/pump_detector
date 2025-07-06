@@ -1,24 +1,33 @@
+from core.mexc import get_mexc_symbols, get_mexc_price
+from core.dex import get_dex_data_by_symbol
+
 def calculate_spread(dex_price: float, mexc_price: float) -> float:
     return (dex_price - mexc_price) / mexc_price * 100
 
-def evaluate_signal(token_address: str, mexc_symbol: str) -> dict | None:
-    from core.dex import get_dex_price
-    from core.mexc import get_mexc_price
+def scan_market_for_signals():
+    results = []
+    symbols = get_mexc_symbols()
 
-    dex_data = get_dex_price(token_address)
-    mexc_price = get_mexc_price(mexc_symbol)
+    for full_symbol in symbols:
+        if not full_symbol.endswith("USDT"):
+            continue
 
-    if not dex_data or not mexc_price:
-        return None
+        base_symbol = full_symbol.replace("USDT", "")
+        mexc_price = get_mexc_price(full_symbol)
+        dex_data = get_dex_data_by_symbol(base_symbol)
 
-    spread = calculate_spread(dex_data['price'], mexc_price)
+        if not dex_data or not mexc_price:
+            continue
 
-    if spread >= 10:
-        return {
-            "dex_price": dex_data['price'],
-            "mexc_price": mexc_price,
-            "spread": spread,
-            "dex_volume": dex_data['volume']
-        }
+        spread = calculate_spread(dex_data['price'], mexc_price)
 
-    return None
+        if spread >= 10 and dex_data['volume'] >= 5000:
+            results.append({
+                "symbol": base_symbol,
+                "mexc_price": mexc_price,
+                "dex_price": dex_data['price'],
+                "spread": spread,
+                "dex_volume": dex_data['volume']
+            })
+
+    return results
