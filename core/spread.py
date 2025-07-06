@@ -11,7 +11,7 @@ def scan_market_for_signals():
     results = []
     symbols = get_mexc_symbols()
     prices = get_all_mexc_prices()
-    logging.info(f"Найдено {len(symbols)} пар для анализа.")
+    logging.info(f"Получено {len(symbols)} пар с MEXC. Начинаем проверку на объём и спред...")
 
     for index, full_symbol in enumerate(symbols):
         if not full_symbol.endswith("USDT"):
@@ -29,14 +29,14 @@ def scan_market_for_signals():
         time.sleep(1)
 
         if not dex_data:
-            logging.debug(f"{base_symbol} — нет данных на DEX, пропускаем")
+            logging.debug(f"{base_symbol} — нет данных на DEX или объём < $50k, пропускаем")
             continue
 
         spread = calculate_spread(dex_data['price'], mexc_price)
 
         logging.info(f"{base_symbol} | MEXC: {mexc_price:.6f}, DEX: {dex_data['price']:.6f}, Объём: ${dex_data['volume']:.0f}, Спред: {spread:.2f}%")
 
-        if spread >= 10 and dex_data['volume'] >= 5000:
+        if spread >= 10:
             logging.info(f"💰 СИГНАЛ: {base_symbol} — {spread:.2f}%")
             results.append({
                 "symbol": base_symbol,
@@ -46,5 +46,5 @@ def scan_market_for_signals():
                 "dex_volume": dex_data['volume']
             })
 
-    logging.info(f"Анализ завершён. Найдено сигналов: {len(results)}")
+    logging.info(f"✅ Проверено: {index + 1} токенов. Найдено сигналов: {len(results)}")
     return results

@@ -13,6 +13,10 @@ def get_dex_data_by_symbol(symbol: str):
             if pair.get("chainId") == "bsc" and "USDT" in pair.get("baseToken", {}).get("symbol", ""):
                 price = float(pair.get("priceUsd", 0))
                 volume = float(pair.get("volume", {}).get("h24", 0))
+
+                if volume < 50000:
+                    return None
+
                 return {
                     "price": price,
                     "volume": volume
