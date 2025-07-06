@@ -1,4 +1,5 @@
 import requests
+import logging
 
 def get_dex_data_by_symbol(symbol: str):
     url = f"https://api.dexscreener.com/latest/dex/search/?q={symbol}"
@@ -20,5 +21,5 @@ def get_dex_data_by_symbol(symbol: str):
         return None
 
     except Exception as error:
-        print(f"[DEX ERROR] Failed to search DEX price for {symbol}: {error}")
+        logging.warning(f"[DEX ERROR] Failed to search DEX price for {symbol}: {error}")
         return None
