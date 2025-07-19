@@ -1,4 +1,1 @@
-aiogram @ https://github.com/aiogram/aiogram/archive/refs/heads/dev-3.x.zip#sha256=a96f3755552904bfcb603bd015fdba9c588c5b64419bb23e3b205f01388738d9
 requests
-python-dotenv
-aiohttp
