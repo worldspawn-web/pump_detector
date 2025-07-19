@@ -16,7 +16,7 @@ class BinanceMarketData:
         ]
         return symbols
 
-    def get_recent_klines(self, symbol, interval="15m", limit=2):
+    def get_recent_klines(self, symbol, interval="15m", limit=100):
         url = f"{self.BASE_URL}/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
         res = requests.get(url)
         if res.status_code != 200:

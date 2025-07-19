@@ -7,14 +7,26 @@ class SignalEngine:
 
     def check_signal(self, symbol):
         klines = self.market_data.get_recent_klines(symbol)
-        if not klines or len(klines) < 2:
+        if not klines or len(klines) < 15:
             return None
 
-        prev_close = float(klines[-2][4])  # close of previous candle
-        last_close = float(klines[-1][4])  # close of current candle
+        closes = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
+
+        prev_close = closes[-2]
+        last_close = closes[-1]
 
         change = ((last_close - prev_close) / prev_close) * 100
+        rsi = calculate_rsi(closes[-15:])
 
-        if change > 25:
-            return f"\n📉 SHORT SIGNAL on {symbol}: +{change:.1f}% in last 15 min"
+        avg_volume = sum(volumes[-16:-1]) / 15
+        last_volume = volumes[-1]
+
+        volume_spike = last_volume > avg_volume * 3
+
+        if change > 25 and rsi > 85 and volume_spike:
+            return (
+                f"\n📉 SHORT SIGNAL on {symbol}:"
+                f" +{change:.1f}% in last 15 min | RSI: {rsi:.1f} | Vol x{last_volume/avg_volume:.1f}"
+            )
         return None
