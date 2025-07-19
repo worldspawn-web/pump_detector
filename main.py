@@ -4,11 +4,11 @@ from core.signal_engine import SignalEngine
 
 def main():
     market = BinanceMarketData()
-    engine = SignalEngine()
+    engine = SignalEngine(market)
 
     print("[+] Starting pump short bot...")
     for symbol_data in market.get_active_symbols():
-        signal = engine.check_signal(symbol_data)
+        signal = engine.check_signal(symbol_data["symbol"])
         if signal:
             print(signal)
 
