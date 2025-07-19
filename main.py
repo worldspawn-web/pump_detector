@@ -1,5 +1,6 @@
 from core.market_data import BinanceMarketData
 from core.signal_engine import SignalEngine
+from tqdm import tqdm
 
 
 def main():
@@ -7,7 +8,9 @@ def main():
     engine = SignalEngine(market)
 
     print("[+] Starting pump short bot...")
-    for symbol_data in market.get_active_symbols():
+    symbols = market.get_active_symbols()
+
+    for symbol_data in tqdm(symbols, desc="Scanning symbols", ncols=100):
         signal = engine.check_signal(symbol_data["symbol"])
         if signal:
             print(signal)

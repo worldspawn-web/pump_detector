@@ -1,5 +1,5 @@
-import time
 import requests
+import time
 
 
 class BinanceMarketData:
