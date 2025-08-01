@@ -37,7 +37,7 @@ class PumpDetector:
         return "📈 <code>Uptrend</code>" if delta > 0 else "📉 <code>Downtrend</code>"
 
     def _get_levels(self, candles):
-        closes = [round(float(c[4]), 4) for c in candles]
+        closes = [round(float(c[4]), 6) for c in candles]
         close_counts = defaultdict(int)
         for close in closes:
             close_counts[close] += 1
@@ -83,7 +83,7 @@ class PumpDetector:
                 f"💰 Funding Rate: <code>{funding}</code>\n"
                 f"📉 Volume: <code>{vol_str}</code>\n"
                 f"📐 Trend: {trend}\n"
-                f"🔍 Levels: S=<code>{support:.4f}</code>, R=<code>{resistance:.4f}</code>\n"
+                f"🔍 Levels: S=<code>{support:.6f}</code>, R=<code>{resistance:.6f}</code>\n"
                 f"#pump"
             )
         return None
