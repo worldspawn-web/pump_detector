@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import time
+from collections import defaultdict
 
 
 class PumpDetector:
@@ -36,10 +37,13 @@ class PumpDetector:
         return "📈 Uptrend" if delta > 0 else "📉 Downtrend"
 
     def _get_levels(self, candles):
-        highs = [float(c[2]) for c in candles]
-        lows = [float(c[3]) for c in candles]
-        resistance = max(highs)
-        support = min(lows)
+        closes = [round(float(c[4]), 4) for c in candles]
+        close_counts = defaultdict(int)
+        for close in closes:
+            close_counts[close] += 1
+        common = [lvl for lvl, count in close_counts.items() if count >= 2]
+        support = min(common) if common else min(closes)
+        resistance = max(common) if common else max(closes)
         return support, resistance
 
     def should_alert(self, symbol):
@@ -54,8 +58,8 @@ class PumpDetector:
         if len(candles) < 2:
             return None
 
-        earliest = float(candles[0][1])  # open price 5 мин назад
-        latest = float(candles[-1][4])  # close последней свечи
+        earliest = float(candles[0][1])
+        latest = float(candles[-1][4])
         volume = float(candles[-1][5])
         percent_change = ((latest - earliest) / earliest) * 100
         rsi = self._calculate_rsi(candles)
@@ -69,18 +73,15 @@ class PumpDetector:
             )
 
         if percent_change >= self.threshold:
-            timestamp = int(candles[-1][0]) // 1000
-            time_str = datetime.utcfromtimestamp(timestamp).strftime("%H:%M UTC")
             vol_str = self._format_volume(volume)
             return (
-                f"🚨 PUMP DETECTED: `{symbol}`\n"
+                f"🚨 PUMP DETECTED: <code>{symbol}</code>\n"
                 f"📈 Price spike: +{percent_change:.2f}% in 5m\n"
                 f"📊 RSI: {rsi:.1f}\n"
                 f"💰 Funding Rate: {funding}\n"
                 f"📉 Volume: {vol_str}\n"
                 f"📐 Trend: {trend}\n"
                 f"🔍 Levels: S={support:.4f}, R={resistance:.4f}\n"
-                f"🕒 Time: {time_str}\n"
                 f"#pump"
             )
         return None

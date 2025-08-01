@@ -11,11 +11,7 @@ async def main():
     alert = TelegramAlert()
 
     print("[+] Starting Binance Pump Watcher Bot...")
-    startup_message = alert.send_message(
-        "🤖 Bot started at {}".format(
-            datetime.datetime.utcnow().strftime("%H:%M:%S UTC")
-        )
-    )
+    startup_message = alert.send_message("🤖 Bot started")
 
     if startup_message:
         await asyncio.sleep(10)
