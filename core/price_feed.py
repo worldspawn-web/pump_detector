@@ -24,6 +24,29 @@ class BinancePriceFeed:
             print(f"  [!] Exception while fetching {symbol}: {e}")
             return symbol, None
 
+    async def get_funding_rate(self, session, symbol):
+        url = f"{self.BASE_URL}/fapi/v1/fundingRate?symbol={symbol}&limit=1"
+        try:
+            async with session.get(url, timeout=10) as res:
+                if res.status != 200:
+                    return symbol, "N/A"
+                data = await res.json()
+                if data:
+                    return symbol, f"{float(data[0]['fundingRate']) * 100:.4f}%"
+                return symbol, "N/A"
+        except:
+            return symbol, "N/A"
+
+    async def get_all_funding_rates(self):
+        watchlist = self.get_watchlist()
+        funding_data = {}
+        async with aiohttp.ClientSession() as session:
+            tasks = [self.get_funding_rate(session, symbol) for symbol in watchlist]
+            results = await asyncio.gather(*tasks)
+            for symbol, rate in results:
+                funding_data[symbol] = rate
+        return funding_data
+
     async def get_all_candles(self):
         watchlist = self.get_watchlist()
         candles_data = {}

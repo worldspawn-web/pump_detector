@@ -24,12 +24,14 @@ async def main():
     while True:
         print(f"[~] Scanning at {datetime.datetime.utcnow().strftime('%H:%M:%S')}...")
         candles_data = await feed.get_all_candles()
+        funding_rates = await feed.get_all_funding_rates()
 
         for symbol, candles in candles_data.items():
             if not candles:
                 print(f"  └─ {symbol}: no data")
                 continue
-            result = detector.check_pump(symbol, candles, verbose=True)
+            funding = funding_rates.get(symbol, "N/A")
+            result = detector.check_pump(symbol, candles, funding=funding, verbose=True)
             if isinstance(result, str):
                 if detector.should_alert(symbol):
                     alert.send_message(result)

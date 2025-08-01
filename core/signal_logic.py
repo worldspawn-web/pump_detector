@@ -35,6 +35,13 @@ class PumpDetector:
             return "🔄 Sideways"
         return "📈 Uptrend" if delta > 0 else "📉 Downtrend"
 
+    def _get_levels(self, candles):
+        highs = [float(c[2]) for c in candles]
+        lows = [float(c[3]) for c in candles]
+        resistance = max(highs)
+        support = min(lows)
+        return support, resistance
+
     def should_alert(self, symbol):
         now = time.time()
         last_alert = self.cooldowns.get(symbol, 0)
@@ -43,7 +50,7 @@ class PumpDetector:
     def register_alert(self, symbol):
         self.cooldowns[symbol] = time.time()
 
-    def check_pump(self, symbol, candles, verbose=False):
+    def check_pump(self, symbol, candles, funding="N/A", verbose=False):
         if len(candles) < 2:
             return None
 
@@ -53,11 +60,12 @@ class PumpDetector:
         percent_change = ((latest - earliest) / earliest) * 100
         rsi = self._calculate_rsi(candles)
         trend = self._detect_trend(candles)
+        support, resistance = self._get_levels(candles)
 
         if verbose:
             vol_str = self._format_volume(volume)
             print(
-                f"  └─ {symbol}: Price={candles[-1][4]}, Δ5m={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}"
+                f"  └─ {symbol}: Price={candles[-1][4]}, Δ5m={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}, Funding={funding}"
             )
 
         if percent_change >= self.threshold:
@@ -68,8 +76,10 @@ class PumpDetector:
                 f"🚨 PUMP DETECTED: `{symbol}`\n"
                 f"📈 Price spike: +{percent_change:.2f}% in 5m\n"
                 f"📊 RSI: {rsi:.1f}\n"
+                f"💰 Funding Rate: {funding}\n"
                 f"📉 Volume: {vol_str}\n"
                 f"📐 Trend: {trend}\n"
+                f"🔍 Levels: S={support:.4f}, R={resistance:.4f}\n"
                 f"🕒 Time: {time_str}\n"
                 f"#pump"
             )
