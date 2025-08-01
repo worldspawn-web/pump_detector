@@ -1,11 +1,11 @@
+import asyncio
+import datetime
 from core.price_feed import BinancePriceFeed
 from core.signal_logic import PumpDetector
 from core.telegram_alert import TelegramAlert
-import time
-import datetime
 
 
-def main():
+async def main():
     feed = BinancePriceFeed()
     detector = PumpDetector()
     alert = TelegramAlert()
@@ -18,13 +18,14 @@ def main():
     )
 
     if startup_message:
-        time.sleep(10)
+        await asyncio.sleep(10)
         alert.delete_message(startup_message["message_id"])
 
     while True:
         print(f"[~] Scanning at {datetime.datetime.utcnow().strftime('%H:%M:%S')}...")
-        for symbol in feed.get_watchlist():
-            candles = feed.get_recent_1m_candles(symbol)
+        candles_data = await feed.get_all_candles()
+
+        for symbol, candles in candles_data.items():
             if not candles:
                 print(f"  └─ {symbol}: no data")
                 continue
@@ -32,8 +33,9 @@ def main():
             if isinstance(result, str):
                 alert.send_message(result)
                 print(f"  └─ {symbol}: 🚨 SIGNAL")
-        time.sleep(10)
+
+        await asyncio.sleep(10)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
