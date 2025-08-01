@@ -2,6 +2,9 @@ from datetime import datetime
 
 
 class PumpDetector:
+    def __init__(self, threshold=5):
+        self.threshold = threshold
+
     def _format_volume(self, volume):
         if volume >= 1_000_000_000:
             return f"{volume/1_000_000_000:.1f}B"
@@ -27,7 +30,7 @@ class PumpDetector:
                 f"  └─ {symbol}: Price={candles[-1][4]}, Δ5m={percent_change:.2f}%, Vol={vol_str}"
             )
 
-        if percent_change >= 5:
+        if percent_change >= self.threshold:
             timestamp = int(candles[-1][0]) // 1000
             time_str = datetime.utcfromtimestamp(timestamp).strftime("%H:%M UTC")
             return (

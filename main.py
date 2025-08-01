@@ -7,7 +7,7 @@ from core.telegram_alert import TelegramAlert
 
 async def main():
     feed = BinancePriceFeed()
-    detector = PumpDetector()
+    detector = PumpDetector(threshold=3)  # Порог снижен с 5% до 3%
     alert = TelegramAlert()
 
     print("[+] Starting Binance Pump Watcher Bot...")
