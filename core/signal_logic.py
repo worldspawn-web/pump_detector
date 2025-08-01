@@ -1,9 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 
 
 class PumpDetector:
-    def __init__(self, threshold=5):
+    def __init__(self, threshold=5, cooldown_minutes=30):
         self.threshold = threshold
+        self.cooldowns = {}  # symbol: last_signal_timestamp
+        self.cooldown_period = cooldown_minutes * 60
 
     def _format_volume(self, volume):
         if volume >= 1_000_000_000:
@@ -14,6 +17,14 @@ class PumpDetector:
             return f"{volume/1_000:.1f}K"
         else:
             return f"{volume:.1f}"
+
+    def should_alert(self, symbol):
+        now = time.time()
+        last_alert = self.cooldowns.get(symbol, 0)
+        return (now - last_alert) >= self.cooldown_period
+
+    def register_alert(self, symbol):
+        self.cooldowns[symbol] = time.time()
 
     def check_pump(self, symbol, candles, verbose=False):
         if len(candles) < 2:

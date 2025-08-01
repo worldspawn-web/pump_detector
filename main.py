@@ -31,8 +31,10 @@ async def main():
                 continue
             result = detector.check_pump(symbol, candles, verbose=True)
             if isinstance(result, str):
-                alert.send_message(result)
-                print(f"  └─ {symbol}: 🚨 SIGNAL")
+                if detector.should_alert(symbol):
+                    alert.send_message(result)
+                    detector.register_alert(symbol)
+                    print(f"  └─ {symbol}: 🚨 SIGNAL")
 
         await asyncio.sleep(10)
 
