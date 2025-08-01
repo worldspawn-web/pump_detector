@@ -1,4 +1,4 @@
-from core.price_feed import MexcPriceFeed
+from core.price_feed import BinancePriceFeed
 from core.signal_logic import PumpDetector
 from core.telegram_alert import TelegramAlert
 import time
@@ -6,11 +6,11 @@ import datetime
 
 
 def main():
-    feed = MexcPriceFeed()
+    feed = BinancePriceFeed()
     detector = PumpDetector()
     alert = TelegramAlert()
 
-    print("[+] Starting MEXC Pump Watcher Bot...")
+    print("[+] Starting Binance Pump Watcher Bot...")
     startup_message = alert.send_message(
         "🤖 Bot started at {}".format(
             datetime.datetime.utcnow().strftime("%H:%M:%S UTC")
