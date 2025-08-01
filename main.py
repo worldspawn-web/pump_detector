@@ -24,17 +24,14 @@ def main():
     while True:
         print(f"[~] Scanning at {datetime.datetime.utcnow().strftime('%H:%M:%S')}...")
         for symbol in feed.get_watchlist():
-            print(f"  └─ Checking {symbol}...", end=" ")
             candles = feed.get_recent_1m_candles(symbol)
             if not candles:
-                print("no data")
+                print(f"  └─ {symbol}: no data")
                 continue
-            signal = detector.check_pump(symbol, candles)
-            if signal:
-                alert.send_message(signal)
-                print("🚨 SIGNAL")
-            else:
-                print("ok")
+            result = detector.check_pump(symbol, candles, verbose=True)
+            if isinstance(result, str):
+                alert.send_message(result)
+                print(f"  └─ {symbol}: 🚨 SIGNAL")
         time.sleep(10)
 
 
