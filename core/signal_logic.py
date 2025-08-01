@@ -33,8 +33,8 @@ class PumpDetector:
         closes = [float(c[4]) for c in candles[-5:]]
         delta = closes[-1] - closes[0]
         if abs(delta) < closes[0] * 0.002:
-            return "🔄 Sideways"
-        return "📈 Uptrend" if delta > 0 else "📉 Downtrend"
+            return "🔄 <code>Sideways</code>"
+        return "📈 <code>Uptrend</code>" if delta > 0 else "📉 <code>Downtrend</code>"
 
     def _get_levels(self, candles):
         closes = [round(float(c[4]), 4) for c in candles]
@@ -75,13 +75,15 @@ class PumpDetector:
         if percent_change >= self.threshold:
             vol_str = self._format_volume(volume)
             return (
-                f"🚨 PUMP DETECTED: <code>{symbol}</code>\n"
-                f"📈 Price spike: +{percent_change:.2f}% in 5m\n"
-                f"📊 RSI: {rsi:.1f}\n"
-                f"💰 Funding Rate: {funding}\n"
-                f"📉 Volume: {vol_str}\n"
+                f"🚨 <b>SIGNAL</b> 🚨\n"
+                f"Coin: <code>{symbol}</code>\n"
+                f"━━━━━━━━━━━━━\n"
+                f"📈 Price spike: <code>+{percent_change:.2f}%</code> in 5m\n"
+                f"📊 RSI: <code>{rsi:.1f}</code>\n"
+                f"💰 Funding Rate: <code>{funding}</code>\n"
+                f"📉 Volume: <code>{vol_str}</code>\n"
                 f"📐 Trend: {trend}\n"
-                f"🔍 Levels: S={support:.4f}, R={resistance:.4f}\n"
+                f"🔍 Levels: S=<code>{support:.4f}</code>, R=<code>{resistance:.4f}</code>\n"
                 f"#pump"
             )
         return None
