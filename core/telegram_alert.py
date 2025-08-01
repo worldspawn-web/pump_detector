@@ -10,6 +10,16 @@ class TelegramAlert:
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
         try:
-            requests.post(url, data=payload)
+            response = requests.post(url, data=payload)
+            return response.json().get("result")
         except Exception as e:
             print(f"[!] Failed to send Telegram message: {e}")
+            return None
+
+    def delete_message(self, message_id):
+        url = f"https://api.telegram.org/bot{self.bot_token}/deleteMessage"
+        payload = {"chat_id": self.chat_id, "message_id": message_id}
+        try:
+            requests.post(url, data=payload)
+        except Exception as e:
+            print(f"[!] Failed to delete message: {e}")
