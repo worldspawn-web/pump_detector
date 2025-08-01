@@ -20,6 +20,20 @@ class TelegramAlert:
             print(f"[!] Failed to send Telegram message: {e}")
             return None
 
+    def send_photo(self, caption, image_path):
+        url = f"https://api.telegram.org/bot{self.bot_token}/sendPhoto"
+        with open(image_path, "rb") as photo:
+            payload = {
+                "chat_id": self.chat_id,
+                "caption": caption,
+                "parse_mode": "HTML",
+            }
+            files = {"photo": photo}
+            try:
+                requests.post(url, data=payload, files=files)
+            except Exception as e:
+                print(f"[!] Failed to send photo: {e}")
+
     def delete_message(self, message_id):
         url = f"https://api.telegram.org/bot{self.bot_token}/deleteMessage"
         payload = {"chat_id": self.chat_id, "message_id": message_id}
