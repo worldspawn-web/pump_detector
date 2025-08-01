@@ -2,6 +2,16 @@ from datetime import datetime
 
 
 class PumpDetector:
+    def _format_volume(self, volume):
+        if volume >= 1_000_000_000:
+            return f"{volume/1_000_000_000:.1f}B"
+        elif volume >= 1_000_000:
+            return f"{volume/1_000_000:.1f}M"
+        elif volume >= 1_000:
+            return f"{volume/1_000:.1f}K"
+        else:
+            return f"{volume:.1f}"
+
     def check_pump(self, symbol, candles, verbose=False):
         if len(candles) < 2:
             return None
@@ -12,8 +22,9 @@ class PumpDetector:
         percent_change = ((latest - earliest) / earliest) * 100
 
         if verbose:
+            vol_str = self._format_volume(volume)
             print(
-                f"  └─ {symbol}: Price={latest:.6f}, Δ5m={percent_change:.2f}%, Vol={volume:.1f}"
+                f"  └─ {symbol}: Price={candles[-1][4]}, Δ5m={percent_change:.2f}%, Vol={vol_str}"
             )
 
         if percent_change >= 5:
