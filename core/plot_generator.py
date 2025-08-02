@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import mplfinance as mpf
 from datetime import timedelta
+import aiohttp
 
 
 class ChartGenerator:
@@ -111,3 +112,23 @@ class ChartGenerator:
         )
 
         return filepath
+
+
+# Метод получения уровней с H1 (экстремумы по high/low)
+async def get_hourly_levels(symbol):
+    url = (
+        f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1h&limit=100"
+    )
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, timeout=10) as res:
+                if res.status != 200:
+                    print(f"[!] Error fetching 1h candles for {symbol}: {res.status}")
+                    return None, None
+                data = await res.json()
+                highs = [float(c[2]) for c in data[-20:]]
+                lows = [float(c[3]) for c in data[-20:]]
+                return min(lows), max(highs)
+        except Exception as e:
+            print(f"[!] Exception fetching hourly levels: {e}")
+            return None, None

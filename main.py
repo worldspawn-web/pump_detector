@@ -4,7 +4,7 @@ import argparse
 from core.price_feed import BinancePriceFeed
 from core.signal_logic import PumpDetector
 from core.telegram_alert import TelegramAlert
-from core.plot_generator import ChartGenerator
+from core.plot_generator import ChartGenerator, get_hourly_levels
 
 
 async def test_signal(symbol: str):
@@ -21,7 +21,7 @@ async def test_signal(symbol: str):
     funding_rates = await feed.get_all_funding_rates()
     funding = funding_rates.get(symbol, "N/A")
     result = detector.check_pump(symbol, candles_data, funding=funding, verbose=True)
-    support, resistance = detector._get_levels(candles_data)
+    support, resistance = await get_hourly_levels(symbol)
     image_path = chart.generate_chart(
         symbol, candles_data, support=support, resistance=resistance
     )
@@ -56,7 +56,7 @@ async def main_loop():
             result = detector.check_pump(symbol, candles, funding=funding, verbose=True)
             if isinstance(result, str):
                 if detector.should_alert(symbol):
-                    support, resistance = detector._get_levels(candles)
+                    support, resistance = await get_hourly_levels(symbol)
                     image_path = chart.generate_chart(
                         symbol, candles, support=support, resistance=resistance
                     )
