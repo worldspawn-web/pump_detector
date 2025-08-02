@@ -20,8 +20,13 @@ async def test_signal(symbol: str):
 
     funding_rates = await feed.get_all_funding_rates()
     funding = funding_rates.get(symbol, "N/A")
-    result = detector.check_pump(symbol, candles_data, funding=funding, verbose=True)
     support, resistance = await get_hourly_levels(symbol)
+    result = detector.check_pump(symbol, candles_data, funding=funding, verbose=True)
+    scenario = detector.predict_scenario(candles_data, support, resistance)
+
+    if result:
+        result += f"\n🧠 <i>Scenario:</i> {scenario}"
+
     image_path = chart.generate_chart(
         symbol, candles_data, support=support, resistance=resistance
     )
@@ -57,6 +62,8 @@ async def main_loop():
             if isinstance(result, str):
                 if detector.should_alert(symbol):
                     support, resistance = await get_hourly_levels(symbol)
+                    scenario = detector.predict_scenario(candles, support, resistance)
+                    result += f"\n🧠 <i>Scenario:</i> {scenario}"
                     image_path = chart.generate_chart(
                         symbol, candles, support=support, resistance=resistance
                     )
