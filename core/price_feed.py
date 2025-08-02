@@ -58,3 +58,8 @@ class BinancePriceFeed:
             for symbol, candles in results:
                 candles_data[symbol] = candles
         return candles_data
+
+    async def get_recent_1m_candles_for_symbol(self, symbol):
+        async with aiohttp.ClientSession() as session:
+            _, candles = await self.get_recent_1m_candles(session, symbol)
+            return candles
