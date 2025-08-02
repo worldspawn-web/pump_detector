@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import mplfinance as mpf
 from datetime import timedelta
-import matplotlib.pyplot as plt
 
 
 class ChartGenerator:
@@ -33,25 +32,35 @@ class ChartGenerator:
 
         # RSI
         delta = df["close"].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        gain = delta.clip(lower=0).rolling(window=14).mean()
+        loss = (-delta.clip(upper=0)).rolling(window=14).mean()
         rs = gain / (loss + 1e-6)
         df["RSI"] = 100 - (100 / (1 + rs))
+        df["RSI"] = df["RSI"].fillna(50)
 
-        # Стиль
+        # Минималистичная тёмная тема
         my_style = mpf.make_mpf_style(
-            base_mpf_style="charles",
-            rc={"axes.facecolor": "#121212", "figure.facecolor": "#121212"},
+            base_mpf_style="starsandstripes",
+            rc={
+                "axes.facecolor": "#181818",
+                "figure.facecolor": "#181818",
+                "savefig.facecolor": "#181818",
+                "text.color": "#cccccc",
+                "axes.labelcolor": "#888888",
+                "xtick.color": "#555555",
+                "ytick.color": "#555555",
+                "grid.color": "#2a2a2a",
+            },
             marketcolors=mpf.make_marketcolors(
-                up="green",
-                down="red",
-                edge="i",
-                wick="i",
-                volume="in",
+                up="#26de81",
+                down="#ff5252",
+                edge="inherit",
+                wick="#888888",
+                volume="inherit",
             ),
         )
 
-        # Уровни
+        # Уровни и RSI
         add_plot = []
 
         if support:
@@ -59,7 +68,7 @@ class ChartGenerator:
                 mpf.make_addplot(
                     [support] * len(df),
                     type="line",
-                    color="cyan",
+                    color="#3ec1d3",
                     linestyle="--",
                     width=1,
                     panel=0,
@@ -70,17 +79,18 @@ class ChartGenerator:
                 mpf.make_addplot(
                     [resistance] * len(df),
                     type="line",
-                    color="orange",
+                    color="#f6ab6c",
                     linestyle="--",
                     width=1,
                     panel=0,
                 )
             )
 
-        # RSI plot
-        add_plot.append(mpf.make_addplot(df["RSI"], panel=1, color="yellow", width=1.5))
+        add_plot.append(
+            mpf.make_addplot(df["RSI"], panel=1, color="#fddb3a", width=1.5)
+        )
 
-        # График
+        # Сохраняем картинку
         filename = f"temp_{symbol}.png"
         filepath = os.path.join("temp", filename)
         os.makedirs("temp", exist_ok=True)
@@ -92,9 +102,12 @@ class ChartGenerator:
             style=my_style,
             figsize=(10, 6),
             panel_ratios=(3, 1),
-            ylabel="Price",
-            ylabel_panel=1,
-            savefig=dict(fname=filepath, facecolor="#121212"),
+            ylabel="",
+            ylabel_lower="",
+            datetime_format="%H:%M",
+            xrotation=0,
+            tight_layout=True,
+            savefig=dict(fname=filepath, facecolor="#181818"),
         )
 
         return filepath
