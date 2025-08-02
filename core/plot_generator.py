@@ -1,13 +1,13 @@
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 import mplfinance as mpf
-from matplotlib.gridspec import GridSpec
+from datetime import timedelta
+import matplotlib.pyplot as plt
 
 
 class ChartGenerator:
-    def generate_chart(self, symbol, candles):
-        # Преобразуем данные в DataFrame
+    def generate_chart(self, symbol, candles, support=None, resistance=None):
+        # DataFrame из свечей
         df = pd.DataFrame(
             candles,
             columns=[
@@ -25,62 +25,76 @@ class ChartGenerator:
                 "_",
             ],
         )
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms") + timedelta(
+            hours=3
+        )
         df.set_index("timestamp", inplace=True)
-
         df = df[["open", "high", "low", "close", "volume"]].astype(float)
 
-        # Рассчитаем RSI
+        # RSI
         delta = df["close"].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / (loss + 1e-6)  # избегаем деления на 0
-        df["rsi"] = 100 - (100 / (1 + rs))
+        rs = gain / (loss + 1e-6)
+        df["RSI"] = 100 - (100 / (1 + rs))
 
-        # Создаём график с двумя панелями
-        fig = mpf.figure(style="charles", figsize=(10, 6), dpi=100)
-        fig.patch.set_facecolor("#121212")  # фон всей фигуры
-
-        gs = GridSpec(2, 1, height_ratios=[3, 1])
-        ax_main = fig.add_subplot(gs[0])
-        ax_rsi = fig.add_subplot(gs[1], sharex=ax_main)
-
-        # Рисуем свечи
-        mpf.plot(
-            df,
-            type="candle",
-            ax=ax_main,
-            volume=False,
-            style="charles",
-            ylabel="Price",
-            datetime_format="%H:%M",
+        # Стиль
+        my_style = mpf.make_mpf_style(
+            base_mpf_style="charles",
+            rc={"axes.facecolor": "#121212", "figure.facecolor": "#121212"},
+            marketcolors=mpf.make_marketcolors(
+                up="green",
+                down="red",
+                edge="i",
+                wick="i",
+                volume="in",
+            ),
         )
 
-        # Рисуем RSI
-        ax_rsi.plot(df.index, df["rsi"], color="orange", linewidth=1.2)
-        ax_rsi.axhline(70, color="red", linestyle="--", linewidth=0.8)
-        ax_rsi.axhline(30, color="green", linestyle="--", linewidth=0.8)
-        ax_rsi.set_ylabel("RSI", color="white")
-        ax_rsi.set_facecolor("#121212")
-        ax_rsi.grid(True, color="#444444")
+        # Уровни
+        add_plot = []
 
-        for spine in ax_rsi.spines.values():
-            spine.set_color("white")
-        ax_rsi.tick_params(axis="x", colors="white")
-        ax_rsi.tick_params(axis="y", colors="white")
+        if support:
+            add_plot.append(
+                mpf.make_addplot(
+                    [support] * len(df),
+                    type="line",
+                    color="cyan",
+                    linestyle="--",
+                    width=1,
+                    panel=0,
+                )
+            )
+        if resistance:
+            add_plot.append(
+                mpf.make_addplot(
+                    [resistance] * len(df),
+                    type="line",
+                    color="orange",
+                    linestyle="--",
+                    width=1,
+                    panel=0,
+                )
+            )
 
-        ax_main.set_facecolor("#121212")
-        for spine in ax_main.spines.values():
-            spine.set_color("white")
-        ax_main.tick_params(axis="x", colors="white")
-        ax_main.tick_params(axis="y", colors="white")
+        # RSI plot
+        add_plot.append(mpf.make_addplot(df["RSI"], panel=1, color="yellow", width=1.5))
 
-        # Сохраняем картинку
+        # График
         filename = f"temp_{symbol}.png"
         filepath = os.path.join("temp", filename)
         os.makedirs("temp", exist_ok=True)
-        plt.tight_layout()
-        fig.savefig(filepath, facecolor=fig.get_facecolor())
-        plt.close(fig)
+
+        mpf.plot(
+            df,
+            type="candle",
+            addplot=add_plot,
+            style=my_style,
+            figsize=(10, 6),
+            panel_ratios=(3, 1),
+            ylabel="Price",
+            ylabel_panel=1,
+            savefig=dict(fname=filepath, facecolor="#121212"),
+        )
 
         return filepath

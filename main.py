@@ -32,7 +32,10 @@ async def main():
             result = detector.check_pump(symbol, candles, funding=funding, verbose=True)
             if isinstance(result, str):
                 if detector.should_alert(symbol):
-                    image_path = chart.generate_chart(symbol, candles)
+                    support, resistance = detector._get_levels(candles)
+                    image_path = chart.generate_chart(
+                        symbol, candles, support=support, resistance=resistance
+                    )
                     alert.send_photo(result, image_path)
                     detector.register_alert(symbol)
                     print(f"  └─ {symbol}: 🚨 SIGNAL")

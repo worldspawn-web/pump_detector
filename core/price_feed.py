@@ -10,7 +10,7 @@ class BinancePriceFeed:
             return [line.strip().upper() for line in f if line.strip()]
 
     async def get_recent_1m_candles(self, session, symbol):
-        url = f"{self.BASE_URL}/fapi/v1/klines?symbol={symbol}&interval=1m&limit=10"
+        url = f"{self.BASE_URL}/fapi/v1/klines?symbol={symbol}&interval=1m&limit=60"
         try:
             async with session.get(url, timeout=10) as res:
                 if res.status != 200:
