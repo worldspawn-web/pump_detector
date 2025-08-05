@@ -37,7 +37,7 @@ async def test_signal(symbol: str):
 
 async def main_loop():
     feed = BinancePriceFeed()
-    detector = PumpDetector(threshold=3)
+    detector = PumpDetector(threshold=7)
     alert = TelegramAlert()
     chart = ChartGenerator()
 
@@ -50,7 +50,7 @@ async def main_loop():
 
     while True:
         print(f"[~] Scanning at {datetime.datetime.utcnow().strftime('%H:%M:%S')}...")
-        candles_data = await feed.get_all_candles()
+        candles_data = await feed.get_all_hourly_candles()
         funding_rates = await feed.get_all_funding_rates()
 
         for symbol, candles in candles_data.items():

@@ -81,8 +81,8 @@ class PumpDetector:
         if len(candles) < 2:
             return None
 
-        earliest = float(candles[-6][1])  # open 6 свечей назад (5 минут назад)
-        latest = float(candles[-1][4])  # последний close
+        earliest = float(candles[-2][1])  # open предыдущей свечи
+        latest = float(candles[-1][4])  # close текущей
         volume = float(candles[-1][5])
         percent_change = ((latest - earliest) / earliest) * 100
         rsi = self._calculate_rsi(candles)
@@ -92,16 +92,16 @@ class PumpDetector:
         if verbose:
             vol_str = self._format_volume(volume)
             print(
-                f"  └─ {symbol}: Price={candles[-1][4]}, Δ5m={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}, Funding={funding}"
+                f"  └─ {symbol}: Price={candles[-1][4]}, Δ1h={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}, Funding={funding}"
             )
 
-        if percent_change >= self.threshold:
+        if percent_change >= self.threshold:  # теперь threshold=7
             vol_str = self._format_volume(volume)
             return (
                 f"🚨 <b>SIGNAL</b> 🚨\n"
                 f"Coin: <code>{symbol}</code>\n"
                 f"━━━━━━━━━━━━━\n"
-                f"📈 Price spike: <code>+{percent_change:.2f}%</code> in 5m\n"
+                f"📈 Price spike: <code>+{percent_change:.2f}%</code> in 1h\n"
                 f"📊 RSI: <code>{rsi:.1f}</code>\n"
                 f"💰 Funding Rate: <code>{funding}</code>\n"
                 f"📉 Volume: <code>{vol_str}</code>\n"

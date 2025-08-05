@@ -63,3 +63,28 @@ class BinancePriceFeed:
         async with aiohttp.ClientSession() as session:
             _, candles = await self.get_recent_1m_candles(session, symbol)
             return candles
+
+    async def get_recent_1h_candles(self, session, symbol):
+        url = f"{self.BASE_URL}/fapi/v1/klines?symbol={symbol}&interval=1h&limit=24"
+        try:
+            async with session.get(url, timeout=10) as res:
+                if res.status != 200:
+                    print(f"[!] Error fetching {symbol}: {res.status}")
+                    return symbol, None
+                data = await res.json()
+                return symbol, data
+        except Exception as e:
+            print(f"[!] Exception while fetching {symbol}: {e}")
+            return symbol, None
+
+    async def get_all_hourly_candles(self):
+        watchlist = self.get_watchlist()
+        candles_data = {}
+        async with aiohttp.ClientSession() as session:
+            tasks = [
+                self.get_recent_1h_candles(session, symbol) for symbol in watchlist
+            ]
+            results = await asyncio.gather(*tasks)
+            for symbol, candles in results:
+                candles_data[symbol] = candles
+        return candles_data
