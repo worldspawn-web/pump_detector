@@ -107,7 +107,7 @@ class PumpDetector:
                 f"📉 Volume: <code>{vol_str}</code>\n"
                 f"📐 Trend: {trend}\n"
                 f"🔍 Levels: S=<code>{support:.6f}</code>, R=<code>{resistance:.6f}</code>\n"
-                f"#pump"
+                f"\n"
             )
         return None
 
