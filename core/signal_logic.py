@@ -4,7 +4,7 @@ from collections import defaultdict
 
 
 class PumpDetector:
-    def __init__(self, threshold=5, cooldown_minutes=30):
+    def __init__(self, threshold=7, cooldown_minutes=30):
         self.threshold = threshold
         self.cooldowns = {}
         self.cooldown_period = cooldown_minutes * 60
@@ -89,13 +89,20 @@ class PumpDetector:
         trend = self._detect_trend(candles)
         support, resistance = self._get_levels(candles)
 
+        # 🔒 Новый фильтр: минимальный объём $500K
+        volume_usd = volume * latest
+        if volume_usd < 500_000:
+            if verbose:
+                print(f"  └─ {symbol}: объём ниже $500K — игнор")
+            return None
+
         if verbose:
             vol_str = self._format_volume(volume)
             print(
-                f"  └─ {symbol}: Price={candles[-1][4]}, Δ1h={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}, Funding={funding}"
+                f"  └─ {symbol}: Price={latest}, Δ1h={percent_change:.2f}%, Vol={vol_str}, RSI={rsi:.1f}, Trend={trend}, Funding={funding}"
             )
 
-        if percent_change >= self.threshold:  # теперь threshold=7
+        if percent_change >= self.threshold:
             vol_str = self._format_volume(volume)
             return (
                 f"🚨 <b>SIGNAL</b> 🚨\n"
@@ -126,25 +133,20 @@ class PumpDetector:
         reversal_chance = 0
         continuation_chance = 0
 
-        # Цена близка к сопротивлению → шанс отката
         if resistance and (resistance - close) / close < 0.01:
             reversal_chance += 1
 
-        # RSI > 70 — перекупленность
         if rsi > 70:
             reversal_chance += 1
         elif rsi < 30:
             continuation_chance += 1
 
-        # Объём резко вырос — всплеск
         if volume_now > volume_prev * 1.5:
             reversal_chance += 1
 
-        # Цена выше VWAP более чем на 1%
         if close > vwap * 1.01:
             reversal_chance += 1
 
-        # Тренд ап — шанс на продолжение
         if "Uptrend" in trend:
             continuation_chance += 1
         elif "Downtrend" in trend:
