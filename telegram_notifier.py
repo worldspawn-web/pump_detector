@@ -38,3 +38,33 @@ class TelegramNotifier:
             logger.info(f"Photo sent: {photo_path}")
         except Exception as e:
             logger.error(f"Failed to send photo {photo_path}: {e}")
+        
+    async def send_photo_with_caption(self, text: str, photo_path: str, caption: str = ""):
+        """Отправить фото с текстом в одном сообщении."""
+        try:
+            with open(photo_path, 'rb') as photo:
+                sent_message = await self.bot.send_photo(
+                    chat_id=self.chat_id,
+                    photo=photo,
+                    caption=f"{text}\n\n{caption}",
+                    parse_mode=ParseMode.HTML
+                )
+            logger.info(f"Photo with caption sent: {photo_path}")
+            return sent_message
+        except Exception as e:
+            logger.error(f"Failed to send photo with caption {photo_path}: {e}")
+            return None
+
+    async def send_photo_reply(self, photo_path: str, reply_to_message_id: int, caption: str = ""):
+        """Отправить фото ответом на сообщение."""
+        try:
+            with open(photo_path, 'rb') as photo:
+                await self.bot.send_photo(
+                    chat_id=self.chat_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_to_message_id=reply_to_message_id
+                )
+            logger.info(f"Photo reply sent: {photo_path}")
+        except Exception as e:
+            logger.error(f"Failed to send photo reply {photo_path}: {e}")

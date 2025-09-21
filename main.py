@@ -123,16 +123,14 @@ class PumpDetector:
                 f"<b>Биржа:</b> MEXC\n"
                 f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
             )
-
             # Отправляем текст + 1h график
-            await self.telegram.send_message(message)
             if chart_1h:
-                await self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
-
-            # Отправляем только 1m график
+                sent_message = await self.telegram.send_photo_with_caption(message, chart_1h, caption="1-часовой график с индикаторами")
+            else:
+                sent_message = await self.telegram.send_message(message)
+            # Отправляем 1m график ответом на предыдущее сообщение
             if chart_1m:
-                await self.telegram.send_photo(chart_1m, caption="1-минутный график")
-
+                await self.telegram.send_photo_reply(chart_1m, sent_message.message_id, caption="1-минутный график")
             # Пауза, чтобы не перегружать Telegram API
             await asyncio.sleep(2)
 
@@ -185,12 +183,14 @@ class PumpDetector:
             f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
         )
 
-        # Отправляем
-        await self.telegram.send_message(message)
+        # Отправляем текст + 1h график
         if chart_1h:
-            await self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
+            sent_message = await self.telegram.send_photo_with_caption(message, chart_1h, caption="1-часовой график с индикаторами")
+        else:
+            sent_message = await self.telegram.send_message(message)
+        # Отправляем 1m график ответом на предыдущее сообщение
         if chart_1m:
-            await self.telegram.send_photo(chart_1m, caption="1-минутный график")
+            await self.telegram.send_photo_reply(chart_1m, sent_message.message_id, caption="1-минутный график")
 
         logger.info(f"Тестовый сигнал для {symbol} отправлен!")
 
