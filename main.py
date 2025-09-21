@@ -1,5 +1,5 @@
 from api import MexcClient
-from plots import plot_1min_chart, plot_1h_chart_with_indicators
+from plots import plot_1min_candlestick_chart, plot_1h_candlestick_chart_with_indicators
 from telegram_notifier import TelegramNotifier
 from config import (
     PUMP_THRESHOLD_PERCENT,
@@ -77,11 +77,11 @@ class PumpDetector:
             # Проверка: существует ли пара и активна ли она
             try:
                 market = self.mexc.exchange.market(symbol)
-                if not market.get('active', True):
+                if not market or not market.get('active', True):
                     logger.warning(f"Монета {symbol} неактивна или удалена")
                     continue
             except Exception as e:
-                logger.warning(f"Монета {symbol} не найдена: {e}")
+                logger.warning(f"Ошибка при проверке {symbol}: {e}")
                 continue
 
             # Получаем последние N минут
@@ -109,8 +109,8 @@ class PumpDetector:
                 continue
 
             # Генерируем графики
-            chart_1m = plot_1min_chart(symbol, ohlcv)
-            chart_1h = plot_1h_chart_with_indicators(symbol, self.mexc.fetch_ohlcv(symbol, '1h', limit=48))
+            chart_1m = plot_1min_candlestick_chart(symbol, ohlcv)
+            chart_1h = plot_1h_candlestick_chart_with_indicators(symbol, self.mexc.fetch_ohlcv(symbol, '1h', limit=48))
 
             # Формируем сообщение
             message = (
