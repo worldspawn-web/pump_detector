@@ -100,12 +100,14 @@ class PumpDetector:
                 f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
             )
 
-            # Отправляем сообщения асинхронно — ТЕПЕРЬ БЕЗ asyncio.run!
+            # Отправляем текст + 1h график
             await self.telegram.send_message(message)
-            if chart_1m:
-                await self.telegram.send_photo(chart_1m, caption="1-минутный график")
             if chart_1h:
                 await self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
+
+            # Отправляем только 1m график
+            if chart_1m:
+                await self.telegram.send_photo(chart_1m, caption="1-минутный график")
 
             # Пауза, чтобы не перегружать Telegram API
             await asyncio.sleep(2)
@@ -127,6 +129,10 @@ def schedule_monitoring():
     except RuntimeError:
         # Если нет — создаём новый
         asyncio.run(run_monitoring_cycle())
+    
+def is_futures_symbol(self, symbol: str) -> bool:
+    """Проверяет, является ли символ фьючерсным."""
+    return "USDT" in symbol and ":" not in symbol
 
 def main():
     logger.info("Bot started. Monitoring every 5 minutes...")

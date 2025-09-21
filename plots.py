@@ -40,8 +40,17 @@ def plot_1min_chart(symbol: str, ohlcv_data) -> str:
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 
         fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(df['timestamp'], df['close'], color='blue', linewidth=2, label='Price')
-        ax.set_title(f"{symbol} — 1 Minute Chart", fontsize=14)
+        
+        # Цвета свечей
+        colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
+        
+        # Свечи
+        for i, row in df.iterrows():
+            ax.vlines(row['timestamp'], row['low'], row['high'], color=colors[i], linewidth=0.8)
+            ax.plot([row['timestamp'], row['timestamp']], [row['open'], row['close']], 
+                    color=colors[i], linewidth=2)
+        
+        ax.set_title(f"{symbol} — 1 Minute Candlestick Chart", fontsize=14)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         plt.xticks(rotation=45)
@@ -51,10 +60,10 @@ def plot_1min_chart(symbol: str, ohlcv_data) -> str:
         plt.savefig(filepath, dpi=100, bbox_inches='tight')
         plt.close()
 
-        logger.info(f"1m chart saved: {filepath}")
+        logger.info(f"1m candlestick chart saved: {filepath}")
         return filepath
     except Exception as e:
-        logger.error(f"Error plotting 1m chart for {symbol}: {e}")
+        logger.error(f"Error plotting 1m candlestick chart for {symbol}: {e}")
         return None
 
 def plot_1h_chart_with_indicators(symbol: str, ohlcv_data) -> str:
