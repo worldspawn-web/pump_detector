@@ -1,85 +1,65 @@
-import asyncio
-import datetime
-import argparse
-from core.price_feed import BinancePriceFeed
-from core.signal_logic import PumpDetector
-from core.telegram_alert import TelegramAlert
-from core.plot_generator import ChartGenerator, get_hourly_levels
+from api import MexcClient
+from plots import plot_1min_chart, plot_1h_chart_with_indicators
+from telegram import TelegramNotifier
+from config import (
+    PUMP_THRESHOLD_PERCENT,
+    PUMP_WINDOW_MINUTES,
+    MIN_VOLUME_USDT,
+    BLACKLIST_FILE
+)
+from utils import logger
+import json
+import time
+import schedule
 
+class PumpDetector:
+    def __init__(self):
+        self.mexc = MexcClient()
+        self.telegram = TelegramNotifier()
+        self.blacklist = self.load_blacklist()
 
-async def test_signal(symbol: str):
-    feed = BinancePriceFeed()
-    chart = ChartGenerator()
-    detector = PumpDetector(threshold=3)
-    alert = TelegramAlert()
+    def load_blacklist(self) -> set:
+        """Загрузить чёрный список из JSON."""
+        try:
+            with open(BLACKLIST_FILE, 'r', encoding='utf-8') as f:
+                return set(json.load(f))
+        except FileNotFoundError:
+            logger.warning("Blacklist file not found, creating empty one.")
+            return set()
+        except Exception as e:
+            logger.error(f"Error loading blacklist: {e}")
+            return set()
 
-    candles_data = await feed.get_recent_1m_candles_for_symbol(symbol)
-    if not candles_data:
-        print(f"[!] No data for {symbol}")
-        return
+    def save_blacklist(self):
+        """Сохранить чёрный список в JSON."""
+        try:
+            with open(BLACKLIST_FILE, 'w', encoding='utf-8') as f:
+                json.dump(list(self.blacklist), f, indent=2, ensure_ascii=False)
+            logger.info("Blacklist saved")
+        except Exception as e:
+            logger.error(f"Error saving blacklist: {e}")
 
-    funding_rates = await feed.get_all_funding_rates()
-    funding = funding_rates.get(symbol, "N/A")
-    support, resistance = await get_hourly_levels(symbol)
-    result = detector.check_pump(symbol, candles_data, funding=funding, verbose=True)
-    scenario = detector.predict_scenario(candles_data, support, resistance)
+    def is_pump(self, symbol: str, ohlcv_data) -> dict:
+        """Проверить, был ли памп. Возвращает словарь с данными или None."""
+        if not ohlcv_data or len(ohlcv_data) < PUMP_WINDOW_MINUTES:
+            return None
 
-    if result:
-        result += f"\n🧠 <i>Scenario:</i> {scenario}"
+        closes = [candle[4] for candle in ohlcv_data]  # close prices
+        start_price = closes[0]
+        end_price = closes[-1]
 
-    image_path = chart.generate_chart(
-        symbol, candles_data, support=support, resistance=resistance
-    )
-    caption = result or f"📊 <b>TEST SIGNAL</b>\nCoin: <code>{symbol}</code>"
-    alert.send_photo(caption, image_path)
-    print(f"[+] Test signal sent for {symbol}")
+        if start_price <= 0:
+            return None
 
+        change_percent = ((end_price / start_price) - 1) * 100
+        volume = sum(candle[5] for candle in ohlcv_data)  # total volume
 
-async def main_loop():
-    feed = BinancePriceFeed()
-    detector = PumpDetector(threshold=7)
-    alert = TelegramAlert()
-    chart = ChartGenerator()
-
-    print("[+] Starting Binance Pump Watcher Bot...")
-    startup_message = alert.send_message("🤖 Bot started")
-
-    if startup_message:
-        await asyncio.sleep(10)
-        alert.delete_message(startup_message["message_id"])
-
-    while True:
-        print(f"[~] Scanning at {datetime.datetime.utcnow().strftime('%H:%M:%S')}...")
-        candles_data = await feed.get_all_hourly_candles()
-        funding_rates = await feed.get_all_funding_rates()
-
-        for symbol, candles in candles_data.items():
-            if not candles:
-                print(f"  └─ {symbol}: no data")
-                continue
-            funding = funding_rates.get(symbol, "N/A")
-            result = detector.check_pump(symbol, candles, funding=funding, verbose=True)
-            if isinstance(result, str):
-                if detector.should_alert(symbol):
-                    support, resistance = await get_hourly_levels(symbol)
-                    scenario = detector.predict_scenario(candles, support, resistance)
-                    result += f"\n🧠 <i>Scenario:</i> {scenario}"
-                    image_path = chart.generate_chart(
-                        symbol, candles, support=support, resistance=resistance
-                    )
-                    alert.send_photo(result, image_path)
-                    detector.register_alert(symbol)
-                    print(f"  └─ {symbol}: 🚨 SIGNAL")
-
-        await asyncio.sleep(10)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--test", help="Run test signal for given symbol", type=str)
-    args = parser.parse_args()
-
-    if args.test:
-        asyncio.run(test_signal(args.test.upper()))
-    else:
-        asyncio.run(main_loop())
+        if change_percent >= PUMP_THRESHOLD_PERCENT and volume >= MIN_VOLUME_USDT:
+            return {
+                "symbol": symbol,
+                "change_percent": change_percent,
+                "start_price": start_price,
+                "end_price": end_price,
+                "volume": volume,
+            }
+        return None
