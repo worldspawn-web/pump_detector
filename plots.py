@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
+import matplotlib.dates as mdates
 from config import PLOT_DIR
 from utils import logger
 
@@ -40,7 +41,13 @@ def plot_1min_candlestick_chart(symbol: str, ohlcv_data) -> str:
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 
         fig, ax = plt.subplots(figsize=(12, 6))
+
+        # Цвета свечей
         colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
+
+        # Устанавливаем формат дат
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))  # каждые 5 минут
 
         # Свечи: тело + тени
         for i, row in df.iterrows():
@@ -56,7 +63,6 @@ def plot_1min_candlestick_chart(symbol: str, ohlcv_data) -> str:
 
         ax.set_title(f"{symbol} — 1 Minute Candlestick Chart", fontsize=14)
         ax.grid(True, alpha=0.3)
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         plt.xticks(rotation=45)
         plt.tight_layout()
 
@@ -94,13 +100,20 @@ def plot_1h_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
         # Свечи на 1h
         colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
         for i, row in df.iterrows():
-            ax1.vlines(row['timestamp'], row['low'], row['high'], color=colors[i], linewidth=0.8)
-            ax1.plot([row['timestamp'], row['timestamp']], [row['open'], row['close']],
-                     color=colors[i], linewidth=2)
+            # Тело свечи
+            body_height = abs(row['close'] - row['open'])
+            body_start = min(row['open'], row['close'])
+            ax1.bar(row['timestamp'], body_height, bottom=body_start, width=0.001, color=colors[i], edgecolor='black')
+
+            # Тени
+            wick_high = max(row['high'], row['close'], row['open'])
+            wick_low = min(row['low'], row['close'], row['open'])
+            ax1.vlines(row['timestamp'], wick_low, wick_high, color=colors[i], linewidth=0.8)
 
         ax1.set_title(f"{symbol} — 1 Hour Candlestick Chart", fontsize=14)
         ax1.grid(True, alpha=0.3)
         ax1.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=1))  # каждые час
         plt.xticks(rotation=45)
 
         # RSI
