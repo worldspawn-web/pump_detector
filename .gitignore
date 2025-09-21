@@ -1,9 +1,16 @@
 # Environment File
 .env
+.venv
 
 # IDEA
 .idea
+.DS_Store
+.vscode/
 
 # Cache
 __pycache__
 temp
+*.pyc
+logs/
+plots/
+*.png
