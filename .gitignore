@@ -1,6 +1,7 @@
 # Environment File
 .env
 .venv
+venv
 
 # IDEA
 .idea
