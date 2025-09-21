@@ -65,7 +65,7 @@ class PumpDetector:
             }
         return None
     
-    def monitor_symbols(self):
+    async def monitor_symbols(self):
         """Основной цикл мониторинга всех символов."""
         logger.info("Starting pump monitoring cycle...")
         symbols = self.mexc.get_all_symbols()
@@ -80,48 +80,53 @@ class PumpDetector:
                 continue
 
             pump_data = self.is_pump(symbol, ohlcv)
-            if pump_data:
-                logger.info(f"PUMP DETECTED: {symbol} +{pump_data['change_percent']:.2f}%")
+            if not pump_data:
+                continue
 
-                # Генерируем графики
-                chart_1m = plot_1min_chart(symbol, ohlcv)
-                chart_1h = plot_1h_chart_with_indicators(symbol, self.mexc.fetch_ohlcv(symbol, '1h', limit=48))
+            logger.info(f"PUMP DETECTED: {symbol} +{pump_data['change_percent']:.2f}%")
 
-                # Формируем сообщение
-                message = (
-                    f"<b>🚨 PUMP DETECTED 🚨</b>\n"
-                    f"<b>Монета:</b> {symbol}\n"
-                    f"<b>Рост:</b> {pump_data['change_percent']:.2f}%\n"
-                    f"<b>Цена:</b> {pump_data['start_price']:.8f} → {pump_data['end_price']:.8f}\n"
-                    f"<b>Объём:</b> {pump_data['volume']:,.0f} USDT\n"
-                    f"<b>Биржа:</b> MEXC\n"
-                    f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
-                )
+            # Генерируем графики
+            chart_1m = plot_1min_chart(symbol, ohlcv)
+            chart_1h = plot_1h_chart_with_indicators(symbol, self.mexc.fetch_ohlcv(symbol, '1h', limit=48))
 
-                # Отправляем сообщения асинхронно
-                asyncio.run(self.telegram.send_message(message))
-                if chart_1m:
-                    asyncio.run(self.telegram.send_photo(chart_1m, caption="1-минутный график"))
-                if chart_1h:
-                    asyncio.run(self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами"))
+            # Формируем сообщение
+            message = (
+                f"<b>🚨 PUMP DETECTED 🚨</b>\n"
+                f"<b>Монета:</b> {symbol}\n"
+                f"<b>Рост:</b> {pump_data['change_percent']:.2f}%\n"
+                f"<b>Цена:</b> {pump_data['start_price']:.8f} → {pump_data['end_price']:.8f}\n"
+                f"<b>Объём:</b> {pump_data['volume']:,.0f} USDT\n"
+                f"<b>Биржа:</b> MEXC\n"
+                f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
+            )
 
-                # Чтобы не спамить — добавляем в blacklist на 1 час (опционально)
-                # self.blacklist.add(symbol)
-                # self.save_blacklist()
+            # Отправляем сообщения асинхронно — ТЕПЕРЬ БЕЗ asyncio.run!
+            await self.telegram.send_message(message)
+            if chart_1m:
+                await self.telegram.send_photo(chart_1m, caption="1-минутный график")
+            if chart_1h:
+                await self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
 
-                # Пауза, чтобы не перегружать Telegram API
-                time.sleep(2)
+            # Пауза, чтобы не перегружать Telegram API
+            await asyncio.sleep(2)
 
         logger.info("Monitoring cycle completed.")
 
 async def run_monitoring_cycle():
     """Запуск одного цикла мониторинга."""
     detector = PumpDetector()
-    detector.monitor_symbols()
+    await detector.monitor_symbols()  # ← теперь await
 
 def schedule_monitoring():
-    """Запуск мониторинга по расписанию (синхронная обёртка)."""
-    asyncio.run(run_monitoring_cycle())
+    """Запуск мониторинга по расписанию — создаём новый event loop."""
+    # Создаём новый event loop, если текущий занят
+    try:
+        loop = asyncio.get_running_loop()
+        # Если уже есть loop — запускаем в нём
+        asyncio.create_task(run_monitoring_cycle())
+    except RuntimeError:
+        # Если нет — создаём новый
+        asyncio.run(run_monitoring_cycle())
 
 def main():
     logger.info("Bot started. Monitoring every 5 minutes...")
