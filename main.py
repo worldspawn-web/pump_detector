@@ -73,6 +73,16 @@ class PumpDetector:
         for symbol in symbols:
             if symbol in self.blacklist:
                 continue
+            
+            # Проверка: существует ли пара и активна ли она
+            try:
+                market = self.mexc.exchange.market(symbol)
+                if not market.get('active', True):
+                    logger.warning(f"Монета {symbol} неактивна или удалена")
+                    continue
+            except Exception as e:
+                logger.warning(f"Монета {symbol} не найдена: {e}")
+                continue
 
             # Получаем последние N минут
             ohlcv = self.mexc.fetch_ohlcv(symbol, '1m', limit=PUMP_WINDOW_MINUTES + 5)
@@ -84,6 +94,19 @@ class PumpDetector:
                 continue
 
             logger.info(f"PUMP DETECTED: {symbol} +{pump_data['change_percent']:.2f}%")
+            
+            # Фильтрация фейк сигналов
+            if pump_data['start_price'] <= 0 or pump_data['end_price'] <= 0:
+                logger.warning(f"Нулевая цена у {symbol}: {pump_data['start_price']} → {pump_data['end_price']}")
+                continue
+
+            if pump_data['volume'] > 1e15:  # больше 1 квадриллиона — бред
+                logger.warning(f"Подозрительный объём у {symbol}: {pump_data['volume']}")
+                continue
+
+            if pump_data['start_price'] == pump_data['end_price'] == 0:
+                logger.warning(f"Цены не изменились у {symbol} — пропускаем")
+                continue
 
             # Генерируем графики
             chart_1m = plot_1min_chart(symbol, ohlcv)
