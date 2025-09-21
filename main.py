@@ -1,6 +1,6 @@
 from api import MexcClient
 from plots import plot_1min_chart, plot_1h_chart_with_indicators
-from telegram import TelegramNotifier
+from telegram_notifier import TelegramNotifier
 from config import (
     PUMP_THRESHOLD_PERCENT,
     PUMP_WINDOW_MINUTES,
@@ -11,6 +11,7 @@ from utils import logger
 import json
 import time
 import schedule
+import asyncio
 
 class PumpDetector:
     def __init__(self):
@@ -97,12 +98,12 @@ class PumpDetector:
                     f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
                 )
 
-                # Отправляем
-                self.telegram.send_message(message)
+                # Отправляем сообщения асинхронно
+                asyncio.run(self.telegram.send_message(message))
                 if chart_1m:
-                    self.telegram.send_photo(chart_1m, caption="1-минутный график")
+                    asyncio.run(self.telegram.send_photo(chart_1m, caption="1-минутный график"))
                 if chart_1h:
-                    self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
+                    asyncio.run(self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами"))
 
                 # Чтобы не спамить — добавляем в blacklist на 1 час (опционально)
                 # self.blacklist.add(symbol)
@@ -113,16 +114,23 @@ class PumpDetector:
 
         logger.info("Monitoring cycle completed.")
 
-def main():
+async def run_monitoring_cycle():
+    """Запуск одного цикла мониторинга."""
     detector = PumpDetector()
+    detector.monitor_symbols()
 
-    # Запуск каждые 5 минут
-    schedule.every(5).minutes.do(detector.monitor_symbols)
+def schedule_monitoring():
+    """Запуск мониторинга по расписанию (синхронная обёртка)."""
+    asyncio.run(run_monitoring_cycle())
 
+def main():
     logger.info("Bot started. Monitoring every 5 minutes...")
 
     # Первый запуск сразу
-    detector.monitor_symbols()
+    schedule_monitoring()
+
+    # Планировщик каждые 5 минут
+    schedule.every(5).minutes.do(schedule_monitoring)
 
     # Бесконечный цикл
     while True:
