@@ -1,10 +1,14 @@
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter, date2num
+from matplotlib.dates import DateFormatter, date2num, HourLocator, MinuteLocator
 import matplotlib.dates as mdates
 from config import PLOT_DIR
 from utils import logger
+import mplfinance as mpf
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+
 
 # Создаём директорию для графиков
 os.makedirs(PLOT_DIR, exist_ok=True)
@@ -34,48 +38,72 @@ def add_fibonacci_levels(ax, low, high):
         ax.axhline(price, color=colors[i], linestyle='--', alpha=0.7, label=f'Fib {level}')
     ax.legend(loc='upper left', fontsize='x-small')
 
-def plot_1min_candlestick_chart(symbol: str, ohlcv_data) -> str:
-    """Построить 1-минутный график в виде японских свечей."""
+def plot_1m_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
     try:
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['dt'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df['num'] = date2num(df['dt'])  # Конвертируем время в числа для matplotlib
+        df['dt'] = df['dt'] + pd.Timedelta(hours=3)  # Сдвиг на +3 часа (Москва)
+        df.set_index('dt', inplace=True)
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        # Рассчитываем индикаторы
+        df['RSI'] = calculate_rsi(df['close'])
+        macd_line, signal_line = calculate_macd(df['close'])
+        df['MACD'] = macd_line
+        df['Signal'] = signal_line
 
-        # Цвета свечей
-        colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
+        # Цветовая палитра
+        bg_color = '#1e1e1e'  # Темный фон
+        grid_color = '#333333'  # Темная сетка
+        up_color = '#4CAF50'   # Зеленый для роста
+        down_color = '#F44336'  # Красный для падения
+        rsi_color = '#9C27B0'  # Фиолетовый для RSI
+        macd_color = '#2196F3'  # Синий для MACD
+        signal_color = '#FF9800'  # Оранжевый для Signal
 
-        # Ширина свечи: 1 минута = 1/1440 дня
-        width = 1 / 1440 * 0.8  # 80% от минуты, чтобы не соприкасались
+        # Настройка стиля для mplfinance
+        mpf_style = mpf.make_mpf_style(
+            base_mpf_style='nightclouds',
+            rc={'font.size': 8, 'font.family': 'sans-serif'},
+            marketcolors=mpf.make_marketcolors(up=up_color, down=down_color, edge='inherit', wick='inherit'),
+            gridcolor=grid_color,
+            gridstyle='--',
+            facecolor=bg_color,
+            figcolor=bg_color
+        )
 
-        # Свечи: тело + тени
-        for i, row in df.iterrows():
-            # Тело свечи
-            body_height = abs(row['close'] - row['open'])
-            body_start = min(row['open'], row['close'])
-            ax.bar(row['num'], body_height, bottom=body_start, width=width, color=colors[i], edgecolor='black', zorder=2)
+        # Добавляем графики
+        apds = [
+            mpf.make_addplot(df['RSI'], panel=1, color=rsi_color, ylabel='RSI', secondary_y=False),
+            mpf.make_addplot(df[['MACD']], panel=2, type='line', color=macd_color, ylabel='MACD'),
+            mpf.make_addplot(df[['Signal']], panel=2, type='line', color=signal_color)
+        ]
 
-            # Тени
-            wick_high = max(row['high'], row['close'], row['open'])
-            wick_low = min(row['low'], row['close'], row['open'])
-            ax.vlines(row['num'], wick_low, wick_high, color=colors[i], linewidth=0.8, zorder=1)
+        # Построение графика
+        fig, axes = mpf.plot(
+            df,
+            type='candle',
+            style=mpf_style,
+            title=f"{symbol} — 1 Minute Candlestick Chart",
+            ylabel='Price',
+            volume=False,
+            returnfig=True,
+            addplot=apds,
+            figratio=(12, 8),
+            figscale=1.1,
+            xrotation=45
+        )
 
-        # Форматирование оси X
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))  # подписи каждые 5 минут
-        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))   # сетка по минутам
+        # Настройка внешнего вида
+        for ax in axes:
+            ax.set_facecolor(bg_color)
+            ax.grid(True, color=grid_color, linestyle='--', alpha=0.5)
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
 
-        ax.set_xlim(df['num'].min() - width, df['num'].max() + width)  # автосайз с отступами
-        ax.set_title(f"{symbol} — 1 Minute Candlestick Chart", fontsize=14)
-        ax.grid(True, which='both', alpha=0.3)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-
+        # Сохранение графика
         filepath = os.path.join(PLOT_DIR, f"{symbol.replace('/', '_')}_1m.png")
-        plt.savefig(filepath, dpi=100, bbox_inches='tight')
-        plt.close()
-
+        fig.savefig(filepath, dpi=100, bbox_inches='tight', facecolor=bg_color, edgecolor=bg_color)
+        plt.close(fig)
         logger.info(f"1m candlestick chart saved: {filepath}")
         return filepath
     except Exception as e:
@@ -83,73 +111,71 @@ def plot_1min_candlestick_chart(symbol: str, ohlcv_data) -> str:
         return None
 
 def plot_1h_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
-    """Построить 1-часовой график в виде японских свечей + RSI + MACD."""
     try:
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['dt'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df['num'] = date2num(df['dt'])
+        df['dt'] = df['dt'] + pd.Timedelta(hours=3)  # Сдвиг на +3 часа (Москва)
+        df.set_index('dt', inplace=True)
 
-        # RSI
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
+        # Рассчитываем индикаторы
+        df['RSI'] = calculate_rsi(df['close'])
+        macd_line, signal_line = calculate_macd(df['close'])
+        df['MACD'] = macd_line
+        df['Signal'] = signal_line
 
-        # MACD
-        exp1 = df['close'].ewm(span=12).mean()
-        exp2 = df['close'].ewm(span=26).mean()
-        macd_line = exp1 - exp2
-        signal_line = macd_line.ewm(span=9).mean()
+        # Цветовая палитра
+        bg_color = '#1e1e1e'  # Темный фон
+        grid_color = '#333333'  # Темная сетка
+        up_color = '#4CAF50'   # Зеленый для роста
+        down_color = '#F44336'  # Красный для падения
+        rsi_color = '#9C27B0'  # Фиолетовый для RSI
+        macd_color = '#2196F3'  # Синий для MACD
+        signal_color = '#FF9800'  # Оранжевый для Signal
 
-        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10), height_ratios=[3, 1, 1])
+        # Настройка стиля для mplfinance
+        mpf_style = mpf.make_mpf_style(
+            base_mpf_style='nightclouds',
+            rc={'font.size': 8, 'font.family': 'sans-serif'},
+            marketcolors=mpf.make_marketcolors(up=up_color, down=down_color, edge='inherit', wick='inherit'),
+            gridcolor=grid_color,
+            gridstyle='--',
+            facecolor=bg_color,
+            figcolor=bg_color
+        )
 
-        # Свечи на 1h
-        colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
-        width = 1 / 24 * 0.8  # 1 час = 1/24 дня, 80% ширины
+        # Добавляем графики
+        apds = [
+            mpf.make_addplot(df['RSI'], panel=1, color=rsi_color, ylabel='RSI', secondary_y=False),
+            mpf.make_addplot(df[['MACD']], panel=2, type='line', color=macd_color, ylabel='MACD'),
+            mpf.make_addplot(df[['Signal']], panel=2, type='line', color=signal_color)
+        ]
 
-        for i, row in df.iterrows():
-            # Тело свечи
-            body_height = abs(row['close'] - row['open'])
-            body_start = min(row['open'], row['close'])
-            ax1.bar(row['num'], body_height, bottom=body_start, width=width, color=colors[i], edgecolor='black', zorder=2)
+        # Построение графика
+        fig, axes = mpf.plot(
+            df,
+            type='candle',
+            style=mpf_style,
+            title=f"{symbol} — 1 Hour Candlestick Chart",
+            ylabel='Price',
+            volume=False,
+            returnfig=True,
+            addplot=apds,
+            figratio=(12, 8),
+            figscale=1.1,
+            xrotation=45
+        )
 
-            # Тени
-            wick_high = max(row['high'], row['close'], row['open'])
-            wick_low = min(row['low'], row['close'], row['open'])
-            ax1.vlines(row['num'], wick_low, wick_high, color=colors[i], linewidth=0.8, zorder=1)
+        # Настройка внешнего вида
+        for ax in axes:
+            ax.set_facecolor(bg_color)
+            ax.grid(True, color=grid_color, linestyle='--', alpha=0.5)
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
 
-        # Форматирование оси X
-        ax1.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-        ax1.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
-        ax1.set_xlim(df['num'].min() - width, df['num'].max() + width)
-        ax1.set_title(f"{symbol} — 1 Hour Candlestick Chart", fontsize=14)
-        ax1.grid(True, which='both', alpha=0.3)
-        plt.xticks(rotation=45)
-
-        # RSI
-        ax2.plot(df['num'], rsi, color='purple', label='RSI')
-        ax2.axhline(70, color='red', linestyle='--', alpha=0.5)
-        ax2.axhline(30, color='green', linestyle='--', alpha=0.5)
-        ax2.set_ylabel('RSI')
-        ax2.grid(True, alpha=0.3)
-        ax2.legend(loc='upper left')
-
-        # MACD
-        ax3.plot(df['num'], macd_line, label='MACD', color='blue')
-        ax3.plot(df['num'], signal_line, label='Signal', color='orange')
-        ax3.fill_between(df['num'], macd_line - signal_line, 0, color='gray', alpha=0.3)
-        ax3.axhline(0, color='black', linestyle='--')
-        ax3.set_ylabel('MACD')
-        ax3.grid(True, alpha=0.3)
-        ax3.legend(loc='upper left')
-
-        plt.tight_layout()
+        # Сохранение графика
         filepath = os.path.join(PLOT_DIR, f"{symbol.replace('/', '_')}_1h.png")
-        plt.savefig(filepath, dpi=100, bbox_inches='tight')
-        plt.close()
-
+        fig.savefig(filepath, dpi=100, bbox_inches='tight', facecolor=bg_color, edgecolor=bg_color)
+        plt.close(fig)
         logger.info(f"1h candlestick chart saved: {filepath}")
         return filepath
     except Exception as e:

@@ -1,5 +1,5 @@
 from api import MexcClient
-from plots import plot_1min_candlestick_chart, plot_1h_candlestick_chart_with_indicators
+from plots import plot_1m_candlestick_chart_with_indicators, plot_1h_candlestick_chart_with_indicators
 from telegram_notifier import TelegramNotifier
 from config import (
     PUMP_THRESHOLD_PERCENT,
@@ -110,7 +110,7 @@ class PumpDetector:
                 continue
 
             # Генерируем графики
-            chart_1m = plot_1min_candlestick_chart(symbol, ohlcv)
+            chart_1m = plot_1m_candlestick_chart_with_indicators(symbol, ohlcv)
             chart_1h = plot_1h_candlestick_chart_with_indicators(symbol, self.mexc.fetch_ohlcv(symbol, '1h', limit=48))
 
             # Формируем сообщение
@@ -171,7 +171,7 @@ class PumpDetector:
         }
 
         # Генерируем графики
-        chart_1m = plot_1min_candlestick_chart(symbol, ohlcv_1m)
+        chart_1m = plot_1m_candlestick_chart_with_indicators(symbol, ohlcv_1m)
         chart_1h = plot_1h_candlestick_chart_with_indicators(symbol, ohlcv_1h)
 
         # Формируем сообщение
