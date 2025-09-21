@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import DateFormatter, date2num
 import matplotlib.dates as mdates
 from config import PLOT_DIR
 from utils import logger
@@ -38,31 +38,37 @@ def plot_1min_candlestick_chart(symbol: str, ohlcv_data) -> str:
     """Построить 1-минутный график в виде японских свечей."""
     try:
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['dt'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['num'] = date2num(df['dt'])  # Конвертируем время в числа для matplotlib
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
         # Цвета свечей
         colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
 
-        # Устанавливаем формат дат
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))  # каждые 5 минут
+        # Ширина свечи: 1 минута = 1/1440 дня
+        width = 1 / 1440 * 0.8  # 80% от минуты, чтобы не соприкасались
 
         # Свечи: тело + тени
         for i, row in df.iterrows():
             # Тело свечи
             body_height = abs(row['close'] - row['open'])
             body_start = min(row['open'], row['close'])
-            ax.bar(row['timestamp'], body_height, bottom=body_start, width=0.001, color=colors[i], edgecolor='black')
+            ax.bar(row['num'], body_height, bottom=body_start, width=width, color=colors[i], edgecolor='black', zorder=2)
 
             # Тени
             wick_high = max(row['high'], row['close'], row['open'])
             wick_low = min(row['low'], row['close'], row['open'])
-            ax.vlines(row['timestamp'], wick_low, wick_high, color=colors[i], linewidth=0.8)
+            ax.vlines(row['num'], wick_low, wick_high, color=colors[i], linewidth=0.8, zorder=1)
 
+        # Форматирование оси X
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))  # подписи каждые 5 минут
+        ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=1))   # сетка по минутам
+
+        ax.set_xlim(df['num'].min() - width, df['num'].max() + width)  # автосайз с отступами
         ax.set_title(f"{symbol} — 1 Minute Candlestick Chart", fontsize=14)
-        ax.grid(True, alpha=0.3)
+        ax.grid(True, which='both', alpha=0.3)
         plt.xticks(rotation=45)
         plt.tight_layout()
 
@@ -80,7 +86,8 @@ def plot_1h_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
     """Построить 1-часовой график в виде японских свечей + RSI + MACD."""
     try:
         df = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['dt'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['num'] = date2num(df['dt'])
 
         # RSI
         delta = df['close'].diff()
@@ -99,25 +106,30 @@ def plot_1h_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
 
         # Свечи на 1h
         colors = ['green' if close > open else 'red' for open, close in zip(df['open'], df['close'])]
+        width = 1 / 24 * 0.8  # 1 час = 1/24 дня, 80% ширины
+
         for i, row in df.iterrows():
             # Тело свечи
             body_height = abs(row['close'] - row['open'])
             body_start = min(row['open'], row['close'])
-            ax1.bar(row['timestamp'], body_height, bottom=body_start, width=0.001, color=colors[i], edgecolor='black')
+            ax1.bar(row['num'], body_height, bottom=body_start, width=width, color=colors[i], edgecolor='black', zorder=2)
 
             # Тени
             wick_high = max(row['high'], row['close'], row['open'])
             wick_low = min(row['low'], row['close'], row['open'])
-            ax1.vlines(row['timestamp'], wick_low, wick_high, color=colors[i], linewidth=0.8)
+            ax1.vlines(row['num'], wick_low, wick_high, color=colors[i], linewidth=0.8, zorder=1)
 
-        ax1.set_title(f"{symbol} — 1 Hour Candlestick Chart", fontsize=14)
-        ax1.grid(True, alpha=0.3)
+        # Форматирование оси X
         ax1.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=1))  # каждые час
+        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        ax1.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
+        ax1.set_xlim(df['num'].min() - width, df['num'].max() + width)
+        ax1.set_title(f"{symbol} — 1 Hour Candlestick Chart", fontsize=14)
+        ax1.grid(True, which='both', alpha=0.3)
         plt.xticks(rotation=45)
 
         # RSI
-        ax2.plot(df['timestamp'], rsi, color='purple', label='RSI')
+        ax2.plot(df['num'], rsi, color='purple', label='RSI')
         ax2.axhline(70, color='red', linestyle='--', alpha=0.5)
         ax2.axhline(30, color='green', linestyle='--', alpha=0.5)
         ax2.set_ylabel('RSI')
@@ -125,9 +137,9 @@ def plot_1h_candlestick_chart_with_indicators(symbol: str, ohlcv_data) -> str:
         ax2.legend(loc='upper left')
 
         # MACD
-        ax3.plot(df['timestamp'], macd_line, label='MACD', color='blue')
-        ax3.plot(df['timestamp'], signal_line, label='Signal', color='orange')
-        ax3.fill_between(df['timestamp'], macd_line - signal_line, 0, color='gray', alpha=0.3)
+        ax3.plot(df['num'], macd_line, label='MACD', color='blue')
+        ax3.plot(df['num'], signal_line, label='Signal', color='orange')
+        ax3.fill_between(df['num'], macd_line - signal_line, 0, color='gray', alpha=0.3)
         ax3.axhline(0, color='black', linestyle='--')
         ax3.set_ylabel('MACD')
         ax3.grid(True, alpha=0.3)
