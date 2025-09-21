@@ -7,6 +7,9 @@ class MexcClient:
         self.exchange = ccxt.mexc({
             'enableRateLimit': True,
             'timeout': 10000,
+            'options': {
+                'defaultType': 'future'
+            }
         })
         logger.info("MEXC client initialized")
 
