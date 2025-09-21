@@ -12,6 +12,7 @@ import json
 import time
 import schedule
 import asyncio
+import argparse
 
 class PumpDetector:
     def __init__(self):
@@ -137,6 +138,62 @@ class PumpDetector:
 
         logger.info("Monitoring cycle completed.")
 
+    async def send_test_signal(self, symbol: str):
+        """Отправить тестовый сигнал по указанной монете."""
+        logger.info(f"Отправка тестового сигнала для {symbol}...")
+
+        # Получаем последние данные
+        ohlcv_1m = self.mexc.fetch_ohlcv(symbol, '1m', limit=60)
+        ohlcv_1h = self.mexc.fetch_ohlcv(symbol, '1h', limit=48)
+
+        if not ohlcv_1m or not ohlcv_1h:
+            logger.error(f"Не удалось получить данные для {symbol}")
+            return
+
+        # Берём последнюю цену и предыдущую для имитации пампа
+        start_price = ohlcv_1m[-10][4]  # цена 10 минут назад
+        end_price = ohlcv_1m[-1][4]     # текущая цена
+        volume = sum(candle[5] for candle in ohlcv_1m[-10:])
+
+        if start_price <= 0:
+            logger.error(f"Нулевая стартовая цена для {symbol}")
+            return
+
+        change_percent = ((end_price / start_price) - 1) * 100
+
+        # Формируем pump_data
+        pump_data = {
+            "symbol": symbol,
+            "change_percent": change_percent,
+            "start_price": start_price,
+            "end_price": end_price,
+            "volume": volume,
+        }
+
+        # Генерируем графики
+        chart_1m = plot_1min_candlestick_chart(symbol, ohlcv_1m)
+        chart_1h = plot_1h_candlestick_chart_with_indicators(symbol, ohlcv_1h)
+
+        # Формируем сообщение
+        message = (
+            f"<b>🧪 ТЕСТОВЫЙ СИГНАЛ</b>\n"
+            f"<b>Монета:</b> {symbol}\n"
+            f"<b>Рост:</b> {pump_data['change_percent']:.2f}%\n"
+            f"<b>Цена:</b> {pump_data['start_price']:.8f} → {pump_data['end_price']:.8f}\n"
+            f"<b>Объём:</b> {pump_data['volume']:,.0f} USDT\n"
+            f"<b>Биржа:</b> MEXC\n"
+            f"<a href='https://www.mexc.com/exchange/{symbol.replace('/', '')}'>Открыть график</a>"
+        )
+
+        # Отправляем
+        await self.telegram.send_message(message)
+        if chart_1h:
+            await self.telegram.send_photo(chart_1h, caption="1-часовой график с индикаторами")
+        if chart_1m:
+            await self.telegram.send_photo(chart_1m, caption="1-минутный график")
+
+        logger.info(f"Тестовый сигнал для {symbol} отправлен!")
+
 async def run_monitoring_cycle():
     """Запуск одного цикла мониторинга."""
     detector = PumpDetector()
@@ -158,7 +215,20 @@ def is_futures_symbol(self, symbol: str) -> bool:
     return "USDT" in symbol and ":" not in symbol
 
 def main():
-    logger.info("Bot started. Monitoring every 5 minutes...")
+    args = parse_args()
+    detector = PumpDetector()
+
+    logger.info("Bot started.")
+
+    # Если передан --test-signal — отправляем тестовый сигнал и выходим
+    if args.test_signal:
+        logger.info(f"Режим тестового сигнала для {args.test_signal}")
+        asyncio.run(detector.send_test_signal(args.test_signal))
+        logger.info("Тестовый сигнал отправлен. Завершение.")
+        return  # ← Завершаем программу после теста
+
+    # Иначе — обычный мониторинг
+    logger.info("Monitoring every 5 minutes...")
 
     # Первый запуск сразу
     schedule_monitoring()
@@ -170,6 +240,16 @@ def main():
     while True:
         schedule.run_pending()
         time.sleep(10)
+
+# --test-signal ETH/USDT
+def parse_args():
+    parser = argparse.ArgumentParser(description="MEXC Pump Bot")
+    parser.add_argument(
+        "--test-signal",
+        type=str,
+        help="Сгенерировать тестовый сигнал для указанной монеты (например, ETH/USDT)"
+    )
+    return parser.parse_args()
 
 if __name__ == "__main__":
     main()
