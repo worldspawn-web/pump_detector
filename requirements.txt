@@ -1,5 +1,6 @@
-requests
-aiohttp
-python-dotenv
-matplotlib
-mplfinance
+ccxt==4.3.24
+matplotlib==3.9.0
+pandas==2.2.2
+python-telegram-bot==20.7
+python-dotenv==1.0.1
+schedule==1.2.2
