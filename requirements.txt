@@ -1,7 +1,16 @@
-ccxt==4.3.24
-matplotlib==3.9.0
-pandas==2.2.2
-python-telegram-bot==20.7
-python-dotenv==1.0.1
-schedule==1.2.2
-asyncio
+# Core async HTTP client
+httpx>=0.25.0
+
+# Telegram bot (async)
+aiogram>=3.2.0
+
+# Configuration and validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
