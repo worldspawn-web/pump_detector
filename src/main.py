@@ -7,6 +7,7 @@ from loguru import logger
 
 from src.config import get_settings
 from src.services.mexc import MEXCClient
+from src.services.binance import BinanceClient
 from src.services.detector import PumpDetector
 from src.services.telegram import TelegramNotifier
 
@@ -47,8 +48,11 @@ async def run_scanner() -> None:
         # Send startup message
         await telegram.send_startup_message()
 
-        async with MEXCClient(settings) as mexc_client:
-            detector = PumpDetector(settings, mexc_client)
+        # Initialize both API clients
+        async with MEXCClient(settings) as mexc_client, BinanceClient() as binance_client:
+            logger.info("Connected to MEXC and Binance APIs")
+
+            detector = PumpDetector(settings, mexc_client, binance_client)
 
             while True:
                 try:
@@ -86,4 +90,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
