@@ -215,24 +215,29 @@ class ChartGenerator:
             # Create horizontal lines for support/resistance
             hlines_dict = self._create_hlines(levels, df)
 
+            # Build plot kwargs
+            plot_kwargs = {
+                "type": "candle",
+                "style": self._style,
+                "title": f"\n{symbol} (1H)",
+                "ylabel": "Price",
+                "volume": True,
+                "volume_panel": 1,
+                "addplot": add_plots,
+                "panel_ratios": (3, 1, 1, 1),  # Price, Volume, RSI, MACD
+                "figsize": (12, 10),
+                "tight_layout": True,
+                "returnfig": True,
+                "datetime_format": "%m-%d %H:%M",
+                "xrotation": 0,
+            }
+
+            # Only add hlines if we have levels
+            if hlines_dict:
+                plot_kwargs["hlines"] = hlines_dict
+
             # Create figure
-            fig, axes = mpf.plot(
-                df,
-                type="candle",
-                style=self._style,
-                title=f"\n{symbol} (1H)",
-                ylabel="Price",
-                volume=True,
-                volume_panel=1,
-                addplot=add_plots,
-                panel_ratios=(3, 1, 1, 1),  # Price, Volume, RSI, MACD
-                figsize=(12, 10),
-                tight_layout=True,
-                returnfig=True,
-                datetime_format="%m-%d %H:%M",
-                xrotation=0,
-                hlines=hlines_dict if hlines_dict else None,
-            )
+            fig, axes = mpf.plot(df, **plot_kwargs)
 
             # Add level annotations
             if levels:
