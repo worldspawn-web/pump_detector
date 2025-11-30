@@ -1,27 +1,29 @@
 """Telegram notification service."""
 
-from io import BytesIO
-
 from aiogram import Bot
 from aiogram.enums import ParseMode
 from aiogram.types import LinkPreviewOptions, BufferedInputFile
+from aiogram.exceptions import TelegramBadRequest
 from loguru import logger
 
 from src.config import Settings
 from src.models.signal import PumpSignal
+from src.database.db import Database
 
 
 class TelegramNotifier:
     """Sends notifications to Telegram."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, database: Database | None = None) -> None:
         """Initialize the Telegram notifier.
 
         Args:
             settings: Application settings.
+            database: Database for storing pinned message IDs.
         """
         self._bot = Bot(token=settings.telegram_bot_token)
         self._chat_id = settings.telegram_chat_id
+        self._db = database
         # Disable link previews
         self._link_preview = LinkPreviewOptions(is_disabled=True)
 
@@ -104,4 +106,80 @@ class TelegramNotifier:
 
         except Exception as e:
             logger.error(f"Failed to send startup message: {e}")
+            return False
+
+    async def update_stats_message(self, stats_text: str) -> bool:
+        """Update or create the pinned stats message.
+
+        Args:
+            stats_text: Formatted stats message text.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not self._db:
+            logger.warning("Database not available for pinned message management")
+            return False
+
+        try:
+            # Try to get existing pinned message ID
+            message_id = await self._db.get_pinned_message(
+                str(self._chat_id),
+                "global_stats",
+            )
+
+            if message_id:
+                # Try to edit existing message
+                try:
+                    await self._bot.edit_message_text(
+                        chat_id=self._chat_id,
+                        message_id=message_id,
+                        text=stats_text,
+                        parse_mode=ParseMode.HTML,
+                        link_preview_options=self._link_preview,
+                    )
+                    logger.debug("Updated pinned stats message")
+                    return True
+                except TelegramBadRequest as e:
+                    if "message is not modified" in str(e).lower():
+                        # No changes needed
+                        return True
+                    elif "message to edit not found" in str(e).lower():
+                        # Message was deleted, create new one
+                        logger.info("Pinned message was deleted, creating new one")
+                        message_id = None
+                    else:
+                        raise
+
+            # Create new message and pin it
+            if not message_id:
+                message = await self._bot.send_message(
+                    chat_id=self._chat_id,
+                    text=stats_text,
+                    parse_mode=ParseMode.HTML,
+                    link_preview_options=self._link_preview,
+                )
+
+                # Try to pin the message
+                try:
+                    await self._bot.pin_chat_message(
+                        chat_id=self._chat_id,
+                        message_id=message.message_id,
+                        disable_notification=True,
+                    )
+                    logger.info("Created and pinned new stats message")
+                except TelegramBadRequest as e:
+                    logger.warning(f"Could not pin message (bot may lack permissions): {e}")
+
+                # Save message ID
+                await self._db.save_pinned_message(
+                    str(self._chat_id),
+                    message.message_id,
+                    "global_stats",
+                )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update stats message: {e}")
             return False

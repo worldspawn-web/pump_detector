@@ -21,6 +21,20 @@ class ExchangeLinks:
 
 
 @dataclass
+class ReversalHistory:
+    """Historical reversal statistics for a coin."""
+
+    total_pumps: int = 0
+    avg_time_to_50pct: str = "N/A"
+    pct_hit_50pct: float = 0.0
+    avg_time_to_100pct: str = "N/A"
+    pct_full_reversal: float = 0.0
+    avg_max_drop: float = 0.0
+    last_results: list[bool] = field(default_factory=list)
+    reliability_emoji: str = "❗"
+
+
+@dataclass
 class PumpSignal:
     """Represents a detected pump signal with technical analysis."""
 
@@ -51,6 +65,9 @@ class PumpSignal:
 
     # Chart image (PNG bytes)
     chart_image: bytes | None = None
+
+    # Reversal history (None = no history yet)
+    reversal_history: ReversalHistory | None = None
 
     @property
     def has_technical_data(self) -> bool:
@@ -123,6 +140,19 @@ class PumpSignal:
                 ]
             )
 
+        # Reversal history section
+        lines.append("")
+        if self.reversal_history and self.reversal_history.total_pumps >= 3:
+            lines.append(self._format_reversal_history())
+        else:
+            lines.extend(
+                [
+                    "<b>━━━ Reversal History ━━━</b>",
+                    "",
+                    "🆕 First recorded pump - no history yet",
+                ]
+            )
+
         lines.extend(
             [
                 "",
@@ -135,6 +165,29 @@ class PumpSignal:
         exchange_links = self._format_exchange_links()
         if exchange_links:
             lines.append(exchange_links)
+
+        return "\n".join(lines)
+
+    def _format_reversal_history(self) -> str:
+        """Format the reversal history section."""
+        h = self.reversal_history
+
+        lines = [
+            f"<b>━━━ Reversal History ({h.total_pumps} pumps) ━━━</b>",
+            "",
+            f"⏱️ Time to 50%: <b>{h.avg_time_to_50pct}</b> ({h.pct_hit_50pct:.0f}% hit)",
+            f"⏱️ Time to 100%: <b>{h.avg_time_to_100pct}</b> ({h.pct_full_reversal:.0f}% hit)",
+            f"📉 Max Drop: <b>-{h.avg_max_drop:.1f}%</b> avg",
+            f"🎯 Full Reversal: <b>{h.pct_full_reversal:.0f}%</b> of pumps",
+        ]
+
+        # Last 5 results
+        if h.last_results:
+            results_str = "".join("✅" if r else "❌" for r in h.last_results)
+            lines.append(f"📊 Last {len(h.last_results)}: {results_str}")
+
+        # Reliability
+        lines.append(f"{h.reliability_emoji} Reliability")
 
         return "\n".join(lines)
 

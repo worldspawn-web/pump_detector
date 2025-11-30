@@ -19,6 +19,9 @@ mplfinance>=0.12.10b0
 matplotlib>=3.8.0
 pandas>=2.1.0
 
+# Database
+aiosqlite>=0.19.0
+
 # Charting
 mplfinance>=0.12.10b0
 matplotlib>=3.8.0

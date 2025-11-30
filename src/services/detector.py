@@ -6,12 +6,13 @@ from typing import Any
 from loguru import logger
 
 from src.config import Settings
-from src.models.signal import PumpSignal, ExchangeLinks
+from src.models.signal import PumpSignal, ExchangeLinks, ReversalHistory
 from src.services.mexc import MEXCClient
 from src.services.binance import BinanceClient
 from src.services.bybit import ByBitClient
 from src.services.bingx import BingXClient
 from src.services.chart import ChartGenerator
+from src.services.tracker import PumpTracker
 from src.utils.indicators import calculate_rsi, determine_trend, Trend
 
 
@@ -29,6 +30,7 @@ class PumpDetector:
         binance_client: BinanceClient,
         bybit_client: ByBitClient,
         bingx_client: BingXClient,
+        tracker: PumpTracker | None = None,
     ) -> None:
         """Initialize the pump detector.
 
@@ -38,12 +40,14 @@ class PumpDetector:
             binance_client: Binance API client.
             bybit_client: ByBit API client.
             bingx_client: BingX API client.
+            tracker: Pump tracker for recording and monitoring pumps.
         """
         self._settings = settings
         self._mexc = mexc_client
         self._binance = binance_client
         self._bybit = bybit_client
         self._bingx = bingx_client
+        self._tracker = tracker
         self._chart_generator = ChartGenerator()
         self._alerted_symbols: set[str] = set()
 
@@ -63,9 +67,13 @@ class PumpDetector:
 
         if not tickers:
             logger.warning("No tickers received from MEXC")
-            return signals
+            return signals, tickers
 
         logger.info(f"Scanning {len(tickers)} futures pairs...")
+
+        # Update tracker price cache
+        if self._tracker:
+            await self._tracker.update_prices(tickers)
 
         # First pass: identify potential pumps
         potential_pumps = []
@@ -77,7 +85,7 @@ class PumpDetector:
 
         if not potential_pumps:
             logger.debug("No pumps detected in this cycle")
-            return signals
+            return signals, tickers
 
         logger.info(f"Found {len(potential_pumps)} potential pump(s), analyzing...")
 
@@ -88,13 +96,22 @@ class PumpDetector:
                 signals.append(signal)
                 self._alerted_symbols.add(signal.symbol)
 
+                # Record pump in tracker
+                if self._tracker:
+                    await self._tracker.record_pump(
+                        symbol=signal.symbol,
+                        pump_percent=signal.price_change_percent,
+                        price_at_detection=signal.current_price,
+                    )
+
                 ta_status = f"via {signal.data_source}" if signal.data_source else "no TA"
                 chart_status = "with chart" if signal.chart_image else "no chart"
+                history_status = f"{signal.reversal_history.total_pumps} prev" if signal.reversal_history else "new"
                 logger.info(
-                    f"✓ {signal.symbol} +{signal.price_change_percent:.2f}% ({ta_status}, {chart_status})"
+                    f"✓ {signal.symbol} +{signal.price_change_percent:.2f}% ({ta_status}, {chart_status}, {history_status})"
                 )
 
-        return signals
+        return signals, tickers
 
     def _is_pump(self, ticker: dict) -> bool:
         """Check if ticker meets pump threshold."""
@@ -154,6 +171,9 @@ class PumpDetector:
                     logger.debug(f"Generating chart for {symbol}...")
                     chart_image = self._chart_generator.generate_chart(klines_1h, symbol)
 
+            # Get reversal history
+            reversal_history = await self._get_reversal_history(symbol)
+
             return PumpSignal(
                 symbol=symbol,
                 price_change_percent=price_change_percent,
@@ -170,11 +190,34 @@ class PumpDetector:
                 links=links,
                 data_source=data_source,
                 chart_image=chart_image,
+                reversal_history=reversal_history,
             )
 
         except Exception as e:
             logger.error(f"Error analyzing pump for {ticker.get('symbol', 'unknown')}: {e}")
             return None
+
+    async def _get_reversal_history(self, symbol: str) -> ReversalHistory | None:
+        """Get reversal history for a coin from tracker."""
+        if not self._tracker:
+            return None
+
+        stats = await self._tracker.get_coin_stats(symbol)
+        if not stats:
+            return None
+
+        last_results = await self._tracker.get_coin_last_results(symbol, 5)
+
+        return ReversalHistory(
+            total_pumps=stats.total_pumps,
+            avg_time_to_50pct=stats.avg_time_to_50pct_formatted,
+            pct_hit_50pct=stats.pct_hit_50pct,
+            avg_time_to_100pct=stats.avg_time_to_100pct_formatted,
+            pct_full_reversal=stats.pct_full_reversal,
+            avg_max_drop=stats.avg_max_drop_from_high,
+            last_results=last_results,
+            reliability_emoji=stats.reliability_emoji,
+        )
 
     def _build_exchange_links(self, symbol: str) -> ExchangeLinks:
         """Build exchange links for a symbol."""

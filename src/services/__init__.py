@@ -7,6 +7,8 @@ from src.services.bingx import BingXClient
 from src.services.chart import ChartGenerator
 from src.services.detector import PumpDetector
 from src.services.telegram import TelegramNotifier
+from src.services.tracker import PumpTracker
+from src.services.stats import StatsFormatter
 
 __all__ = [
     "MEXCClient",
@@ -16,4 +18,6 @@ __all__ = [
     "ChartGenerator",
     "PumpDetector",
     "TelegramNotifier",
+    "PumpTracker",
+    "StatsFormatter",
 ]
