@@ -127,6 +127,7 @@ class PumpDetector:
             # Technical analysis data (default empty)
             rsi_1m = None
             rsi_1h = None
+            trend_1h = Trend.NEUTRAL
             trend_4h = Trend.NEUTRAL
             trend_1d = Trend.NEUTRAL
             is_ath = False
@@ -141,6 +142,7 @@ class PumpDetector:
                 data_source, klines = klines_result
                 rsi_1m = self._calculate_rsi_from_klines(klines.get("1m", []))
                 rsi_1h = self._calculate_rsi_from_klines(klines.get("1h", []))
+                trend_1h = self._determine_trend_from_klines(klines.get("1h", []))
                 trend_4h = self._determine_trend_from_klines(klines.get("4h", []))
                 trend_1d = self._determine_trend_from_klines(klines.get("1d", []))
                 is_ath, ath_price = self._check_ath(klines.get("1d", []), current_price)
@@ -159,6 +161,7 @@ class PumpDetector:
                 detected_at=datetime.now(timezone.utc),
                 rsi_1m=rsi_1m,
                 rsi_1h=rsi_1h,
+                trend_1h=trend_1h,
                 trend_4h=trend_4h,
                 trend_1d=trend_1d,
                 is_ath=is_ath,
