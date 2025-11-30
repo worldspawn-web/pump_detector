@@ -140,18 +140,10 @@ class PumpSignal:
                 ]
             )
 
-        # Reversal history section
-        lines.append("")
+        # Reversal history section (only show if we have enough data)
         if self.reversal_history and self.reversal_history.total_pumps >= 3:
+            lines.append("")
             lines.append(self._format_reversal_history())
-        else:
-            lines.extend(
-                [
-                    "<b>━━━ Reversal History ━━━</b>",
-                    "",
-                    "🆕 First recorded pump - no history yet",
-                ]
-            )
 
         lines.extend(
             [
