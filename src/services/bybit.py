@@ -1,4 +1,4 @@
-"""Binance Futures API client for fast technical data."""
+"""ByBit Futures API client for technical data."""
 
 import asyncio
 from typing import Any
@@ -7,24 +7,23 @@ import httpx
 from loguru import logger
 
 
-class BinanceClient:
-    """Fast async client for Binance Futures API (public data only)."""
+class ByBitClient:
+    """Fast async client for ByBit Futures API (public data only)."""
 
-    BASE_URL = "https://fapi.binance.com"
+    BASE_URL = "https://api.bybit.com"
 
     def __init__(self) -> None:
-        """Initialize the Binance client."""
+        """Initialize the ByBit client."""
         self._client: httpx.AsyncClient | None = None
         self._available_symbols: set[str] | None = None
 
-    async def __aenter__(self) -> "BinanceClient":
+    async def __aenter__(self) -> "ByBitClient":
         """Enter async context."""
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             timeout=httpx.Timeout(10.0, connect=5.0),
             headers={"Content-Type": "application/json"},
         )
-        # Pre-fetch available symbols
         await self._load_symbols()
         return self
 
@@ -34,77 +33,89 @@ class BinanceClient:
             await self._client.aclose()
 
     async def _load_symbols(self) -> None:
-        """Load available Binance futures symbols."""
+        """Load available ByBit linear futures symbols."""
         try:
-            response = await self._client.get("/fapi/v1/exchangeInfo")
+            response = await self._client.get(
+                "/v5/market/instruments-info",
+                params={"category": "linear"}
+            )
             response.raise_for_status()
             data = response.json()
-            self._available_symbols = {
-                s["symbol"] for s in data.get("symbols", [])
-                if s.get("status") == "TRADING"
-            }
-            logger.info(f"Loaded {len(self._available_symbols)} Binance futures symbols")
+
+            if data.get("retCode") == 0:
+                self._available_symbols = {
+                    s["symbol"] for s in data.get("result", {}).get("list", [])
+                    if s.get("status") == "Trading"
+                }
+                logger.info(f"Loaded {len(self._available_symbols)} ByBit futures symbols")
+            else:
+                self._available_symbols = set()
         except Exception as e:
-            logger.warning(f"Failed to load Binance symbols: {e}")
+            logger.warning(f"Failed to load ByBit symbols: {e}")
             self._available_symbols = set()
 
     def _convert_symbol(self, mexc_symbol: str) -> str | None:
-        """Convert MEXC symbol format to Binance format.
+        """Convert MEXC symbol to ByBit format.
 
         Args:
             mexc_symbol: MEXC symbol (e.g., BTC_USDT)
 
         Returns:
-            Binance symbol (e.g., BTCUSDT) or None if not available.
+            ByBit symbol (e.g., BTCUSDT) or None if not available.
         """
-        # MEXC: BTC_USDT -> Binance: BTCUSDT
-        binance_symbol = mexc_symbol.replace("_", "")
+        bybit_symbol = mexc_symbol.replace("_", "")
 
-        if self._available_symbols and binance_symbol in self._available_symbols:
-            return binance_symbol
+        if self._available_symbols and bybit_symbol in self._available_symbols:
+            return bybit_symbol
         return None
 
     async def get_klines(
         self,
         symbol: str,
-        interval: str = "1m",
+        interval: str = "1",
         limit: int = 50,
     ) -> list[dict[str, Any]]:
-        """Get kline (candlestick) data for a symbol.
+        """Get kline data for a symbol.
 
         Args:
             symbol: MEXC-format symbol (e.g., BTC_USDT).
-            interval: Candle interval (1m, 5m, 15m, 1h, 4h, 1d).
+            interval: Candle interval (1, 5, 15, 60, 240, D).
             limit: Number of candles to fetch.
 
         Returns:
-            List of kline data with keys: time, open, high, low, close, volume.
+            List of kline data.
         """
         if not self._client:
             return []
 
-        binance_symbol = self._convert_symbol(symbol)
-        if not binance_symbol:
+        bybit_symbol = self._convert_symbol(symbol)
+        if not bybit_symbol:
             return []
 
         try:
             response = await self._client.get(
-                "/fapi/v1/klines",
+                "/v5/market/kline",
                 params={
-                    "symbol": binance_symbol,
+                    "category": "linear",
+                    "symbol": bybit_symbol,
                     "interval": interval,
                     "limit": limit,
                 },
             )
             response.raise_for_status()
-            raw_klines = response.json()
+            data = response.json()
 
-            # Convert Binance format to our standard format
-            # Binance: [openTime, open, high, low, close, volume, closeTime, ...]
+            if data.get("retCode") != 0:
+                return []
+
+            raw_klines = data.get("result", {}).get("list", [])
+
+            # ByBit returns newest first, we need oldest first
+            # Format: [startTime, open, high, low, close, volume, turnover]
             klines = []
-            for k in raw_klines:
+            for k in reversed(raw_klines):
                 klines.append({
-                    "time": k[0],
+                    "time": int(k[0]),
                     "open": float(k[1]),
                     "high": float(k[2]),
                     "low": float(k[3]),
@@ -115,29 +126,21 @@ class BinanceClient:
             return klines
 
         except Exception as e:
-            logger.debug(f"Binance klines error for {symbol}: {e}")
+            logger.debug(f"ByBit klines error for {symbol}: {e}")
             return []
 
     async def get_multi_timeframe_klines(
         self,
         symbol: str,
     ) -> dict[str, list[dict[str, Any]]]:
-        """Get klines for multiple timeframes concurrently.
-
-        Args:
-            symbol: MEXC-format symbol (e.g., BTC_USDT).
-
-        Returns:
-            Dict mapping interval name to kline data.
-        """
+        """Get klines for multiple timeframes concurrently."""
         intervals = {
-            "1m": ("1m", 30),
-            "1h": ("1h", 30),
-            "4h": ("4h", 25),
-            "1d": ("1d", 100),
+            "1m": ("1", 30),
+            "1h": ("60", 30),
+            "4h": ("240", 25),
+            "1d": ("D", 100),
         }
 
-        # Fetch all timeframes concurrently (Binance is fast!)
         tasks = {
             name: self.get_klines(symbol, interval, limit)
             for name, (interval, limit) in intervals.items()
@@ -151,19 +154,12 @@ class BinanceClient:
         }
 
     def has_symbol(self, mexc_symbol: str) -> bool:
-        """Check if a symbol is available on Binance.
-
-        Args:
-            mexc_symbol: MEXC-format symbol.
-
-        Returns:
-            True if symbol exists on Binance.
-        """
+        """Check if a symbol is available on ByBit."""
         return self._convert_symbol(mexc_symbol) is not None
 
     @staticmethod
     def get_futures_url(mexc_symbol: str) -> str:
-        """Get the Binance futures trading URL."""
+        """Get the ByBit futures trading URL."""
         symbol = mexc_symbol.replace("_", "")
-        return f"https://www.binance.com/en/futures/{symbol}"
+        return f"https://www.bybit.com/trade/usdt/{symbol}"
 

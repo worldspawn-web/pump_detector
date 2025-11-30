@@ -2,6 +2,7 @@
 
 from aiogram import Bot
 from aiogram.enums import ParseMode
+from aiogram.types import LinkPreviewOptions
 from loguru import logger
 
 from src.config import Settings
@@ -19,6 +20,8 @@ class TelegramNotifier:
         """
         self._bot = Bot(token=settings.telegram_bot_token)
         self._chat_id = settings.telegram_chat_id
+        # Disable link previews
+        self._link_preview = LinkPreviewOptions(is_disabled=True)
 
     async def close(self) -> None:
         """Close the bot session."""
@@ -39,6 +42,7 @@ class TelegramNotifier:
                 chat_id=self._chat_id,
                 text=message,
                 parse_mode=ParseMode.HTML,
+                link_preview_options=self._link_preview,
             )
             logger.info(f"Sent Telegram alert for {signal.symbol}")
             return True
@@ -73,10 +77,10 @@ class TelegramNotifier:
                 chat_id=self._chat_id,
                 text="🟢 <b>Pump Detector Started</b>\n\nMonitoring MEXC futures for pump anomalies...",
                 parse_mode=ParseMode.HTML,
+                link_preview_options=self._link_preview,
             )
             return True
 
         except Exception as e:
             logger.error(f"Failed to send startup message: {e}")
             return False
-

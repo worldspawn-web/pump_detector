@@ -5,6 +5,7 @@ from enum import Enum
 
 class Trend(Enum):
     """Market trend direction."""
+
     BULLISH = "bullish"
     BEARISH = "bearish"
     NEUTRAL = "neutral"
@@ -110,4 +111,3 @@ def get_rsi_emoji(rsi: float | None) -> str:
         return "🟢"  # Oversold
     else:
         return "🟡"  # Neutral
-
