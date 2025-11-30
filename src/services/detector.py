@@ -18,8 +18,9 @@ from src.utils.indicators import calculate_rsi, determine_trend, Trend
 class PumpDetector:
     """Detects pump anomalies in MEXC futures with technical analysis."""
 
-    # Number of 1H candles needed for chart (RSI needs 14, MACD needs 26+9)
-    CHART_CANDLES = 100
+    # Number of 1H candles needed for chart
+    # We fetch extra for indicator warmup (40) + display (60) = 100 visible after trim
+    CHART_CANDLES = 140
 
     def __init__(
         self,

@@ -56,6 +56,9 @@ class ChartGenerator:
         """Initialize the chart generator."""
         self._style = create_dark_style()
 
+    # Number of candles needed for MACD warmup (26 slow + 9 signal)
+    INDICATOR_WARMUP = 40
+
     def generate_chart(
         self,
         klines: list[dict[str, Any]],
@@ -70,7 +73,7 @@ class ChartGenerator:
         Returns:
             PNG image as bytes, or None if generation fails.
         """
-        if not klines or len(klines) < 35:
+        if not klines or len(klines) < 50:
             logger.warning(
                 f"Insufficient kline data for chart: {len(klines) if klines else 0}"
             )
@@ -79,10 +82,10 @@ class ChartGenerator:
         try:
             # Convert to DataFrame
             df = self._prepare_dataframe(klines)
-            if df is None or len(df) < 35:
+            if df is None or len(df) < 50:
                 return None
 
-            # Calculate indicators
+            # Calculate indicators on full data
             closes = df["Close"].tolist()
             highs = df["High"].tolist()
             lows = df["Low"].tolist()
@@ -90,7 +93,7 @@ class ChartGenerator:
             rsi_values = calculate_rsi_series(closes, period=14)
             macd_line, signal_line, histogram = calculate_macd(closes)
 
-            # Detect support/resistance levels
+            # Detect support/resistance levels on full data
             levels = detect_support_resistance(
                 highs=highs,
                 lows=lows,
@@ -107,8 +110,13 @@ class ChartGenerator:
             df["Signal"] = signal_line
             df["Histogram"] = histogram
 
-            # Generate chart
-            return self._render_chart(df, symbol, levels)
+            # Trim dataframe to only show portion where indicators have data
+            # This removes the "warmup" period where MACD/RSI are NaN
+            # Use .copy() to avoid SettingWithCopyWarning when modifying later
+            df_display = df.iloc[self.INDICATOR_WARMUP:].copy()
+
+            # Generate chart with trimmed data
+            return self._render_chart(df_display, symbol, levels)
 
         except Exception as e:
             logger.error(f"Failed to generate chart for {symbol}: {e}")
