@@ -113,15 +113,28 @@ class PumpDetector:
 
         return signals, tickers
 
+    # Minimum 24h volume in USD to track a pump
+    MIN_VOLUME_USD = 1_000_000
+
     def _is_pump(self, ticker: dict) -> bool:
-        """Check if ticker meets pump threshold."""
+        """Check if ticker meets pump threshold and volume requirements."""
         try:
             rise_fall_rate = ticker.get("riseFallRate")
             if rise_fall_rate is None:
                 return False
 
             price_change_percent = float(rise_fall_rate) * 100
-            return price_change_percent >= self._settings.pump_threshold_percent
+            
+            # Check pump threshold
+            if price_change_percent < self._settings.pump_threshold_percent:
+                return False
+            
+            # Check minimum volume
+            volume_24h = float(ticker.get("volume24", 0))
+            if volume_24h < self.MIN_VOLUME_USD:
+                return False
+            
+            return True
 
         except (ValueError, TypeError):
             return False
