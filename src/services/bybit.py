@@ -12,6 +12,16 @@ class ByBitClient:
 
     BASE_URL = "https://api.bybit.com"
 
+    # Map standard intervals to ByBit format
+    INTERVAL_MAP = {
+        "1m": "1",
+        "5m": "5",
+        "15m": "15",
+        "1h": "60",
+        "4h": "240",
+        "1d": "D",
+    }
+
     def __init__(self) -> None:
         """Initialize the ByBit client."""
         self._client: httpx.AsyncClient | None = None
@@ -72,14 +82,14 @@ class ByBitClient:
     async def get_klines(
         self,
         symbol: str,
-        interval: str = "1",
+        interval: str = "1h",
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Get kline data for a symbol.
 
         Args:
             symbol: MEXC-format symbol (e.g., BTC_USDT).
-            interval: Candle interval (1, 5, 15, 60, 240, D).
+            interval: Candle interval (1m, 5m, 15m, 1h, 4h, 1d) - standard format.
             limit: Number of candles to fetch.
 
         Returns:
@@ -92,13 +102,16 @@ class ByBitClient:
         if not bybit_symbol:
             return []
 
+        # Convert standard interval to ByBit format
+        bybit_interval = self.INTERVAL_MAP.get(interval, interval)
+
         try:
             response = await self._client.get(
                 "/v5/market/kline",
                 params={
                     "category": "linear",
                     "symbol": bybit_symbol,
-                    "interval": interval,
+                    "interval": bybit_interval,
                     "limit": limit,
                 },
             )
@@ -135,15 +148,15 @@ class ByBitClient:
     ) -> dict[str, list[dict[str, Any]]]:
         """Get klines for multiple timeframes concurrently."""
         intervals = {
-            "1m": ("1", 30),
-            "1h": ("60", 30),
-            "4h": ("240", 25),
-            "1d": ("D", 100),
+            "1m": 30,
+            "1h": 30,
+            "4h": 25,
+            "1d": 100,
         }
 
         tasks = {
-            name: self.get_klines(symbol, interval, limit)
-            for name, (interval, limit) in intervals.items()
+            name: self.get_klines(symbol, name, limit)
+            for name, limit in intervals.items()
         }
 
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)

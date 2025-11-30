@@ -11,11 +11,15 @@ from src.services.mexc import MEXCClient
 from src.services.binance import BinanceClient
 from src.services.bybit import ByBitClient
 from src.services.bingx import BingXClient
+from src.services.chart import ChartGenerator
 from src.utils.indicators import calculate_rsi, determine_trend, Trend
 
 
 class PumpDetector:
     """Detects pump anomalies in MEXC futures with technical analysis."""
+
+    # Number of 1H candles needed for chart (RSI needs 14, MACD needs 26+9)
+    CHART_CANDLES = 100
 
     def __init__(
         self,
@@ -39,6 +43,7 @@ class PumpDetector:
         self._binance = binance_client
         self._bybit = bybit_client
         self._bingx = bingx_client
+        self._chart_generator = ChartGenerator()
         self._alerted_symbols: set[str] = set()
 
     def clear_alerts(self) -> None:
@@ -83,8 +88,9 @@ class PumpDetector:
                 self._alerted_symbols.add(signal.symbol)
 
                 ta_status = f"via {signal.data_source}" if signal.data_source else "no TA"
+                chart_status = "with chart" if signal.chart_image else "no chart"
                 logger.info(
-                    f"✓ {signal.symbol} +{signal.price_change_percent:.2f}% ({ta_status})"
+                    f"✓ {signal.symbol} +{signal.price_change_percent:.2f}% ({ta_status}, {chart_status})"
                 )
 
         return signals
@@ -126,17 +132,24 @@ class PumpDetector:
             is_ath = False
             ath_price = None
             data_source = None
+            chart_image = None
 
             # Try to get technical data from exchanges (in priority order)
-            klines_data = await self._fetch_klines_from_any_exchange(symbol)
+            klines_result = await self._fetch_klines_from_any_exchange(symbol)
 
-            if klines_data:
-                data_source, klines = klines_data
+            if klines_result:
+                data_source, klines = klines_result
                 rsi_1m = self._calculate_rsi_from_klines(klines.get("1m", []))
                 rsi_1h = self._calculate_rsi_from_klines(klines.get("1h", []))
                 trend_4h = self._determine_trend_from_klines(klines.get("4h", []))
                 trend_1d = self._determine_trend_from_klines(klines.get("1d", []))
                 is_ath, ath_price = self._check_ath(klines.get("1d", []), current_price)
+
+                # Generate chart from 1H klines
+                klines_1h = klines.get("1h", [])
+                if len(klines_1h) >= 35:
+                    logger.debug(f"Generating chart for {symbol}...")
+                    chart_image = self._chart_generator.generate_chart(klines_1h, symbol)
 
             return PumpSignal(
                 symbol=symbol,
@@ -152,6 +165,7 @@ class PumpDetector:
                 ath_price=ath_price,
                 links=links,
                 data_source=data_source,
+                chart_image=chart_image,
             )
 
         except Exception as e:
@@ -180,6 +194,7 @@ class PumpDetector:
         """Try to fetch klines from any available exchange.
 
         Tries in order: Binance (fastest) -> ByBit -> BingX
+        Fetches extra 1H candles for chart generation.
 
         Returns:
             Tuple of (exchange_name, klines_data) or None if not available.
@@ -187,26 +202,42 @@ class PumpDetector:
         # Try Binance first (fastest and most reliable)
         if self._binance.has_symbol(symbol):
             logger.debug(f"Fetching {symbol} data from Binance...")
-            klines = await self._binance.get_multi_timeframe_klines(symbol)
+            klines = await self._fetch_klines_with_chart_data(self._binance, symbol)
             if self._has_valid_klines(klines):
                 return ("Binance", klines)
 
         # Try ByBit second
         if self._bybit.has_symbol(symbol):
             logger.debug(f"Fetching {symbol} data from ByBit...")
-            klines = await self._bybit.get_multi_timeframe_klines(symbol)
+            klines = await self._fetch_klines_with_chart_data(self._bybit, symbol)
             if self._has_valid_klines(klines):
                 return ("ByBit", klines)
 
         # Try BingX last
         if self._bingx.has_symbol(symbol):
             logger.debug(f"Fetching {symbol} data from BingX...")
-            klines = await self._bingx.get_multi_timeframe_klines(symbol)
+            klines = await self._fetch_klines_with_chart_data(self._bingx, symbol)
             if self._has_valid_klines(klines):
                 return ("BingX", klines)
 
         logger.debug(f"{symbol} not available on any exchange for TA")
         return None
+
+    async def _fetch_klines_with_chart_data(
+        self,
+        client: BinanceClient | ByBitClient | BingXClient,
+        symbol: str,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch klines with extra 1H data for chart generation."""
+        # Get standard multi-timeframe data
+        klines = await client.get_multi_timeframe_klines(symbol)
+
+        # Fetch additional 1H candles for chart (100 candles)
+        klines_1h_extended = await client.get_klines(symbol, "1h", self.CHART_CANDLES)
+        if klines_1h_extended:
+            klines["1h"] = klines_1h_extended
+
+        return klines
 
     def _has_valid_klines(self, klines: dict[str, list]) -> bool:
         """Check if klines data has enough data for analysis."""

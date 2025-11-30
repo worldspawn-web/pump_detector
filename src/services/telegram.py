@@ -1,8 +1,10 @@
 """Telegram notification service."""
 
+from io import BytesIO
+
 from aiogram import Bot
 from aiogram.enums import ParseMode
-from aiogram.types import LinkPreviewOptions
+from aiogram.types import LinkPreviewOptions, BufferedInputFile
 from loguru import logger
 
 from src.config import Settings
@@ -30,6 +32,8 @@ class TelegramNotifier:
     async def send_signal(self, signal: PumpSignal) -> bool:
         """Send a pump signal to Telegram.
 
+        Sends photo with caption if chart is available, otherwise sends text.
+
         Args:
             signal: The pump signal to send.
 
@@ -38,13 +42,30 @@ class TelegramNotifier:
         """
         try:
             message = signal.format_message()
-            await self._bot.send_message(
-                chat_id=self._chat_id,
-                text=message,
-                parse_mode=ParseMode.HTML,
-                link_preview_options=self._link_preview,
-            )
-            logger.info(f"Sent Telegram alert for {signal.symbol}")
+
+            if signal.chart_image:
+                # Send as photo with caption
+                photo = BufferedInputFile(
+                    signal.chart_image,
+                    filename=f"{signal.symbol}_chart.png",
+                )
+                await self._bot.send_photo(
+                    chat_id=self._chat_id,
+                    photo=photo,
+                    caption=message,
+                    parse_mode=ParseMode.HTML,
+                )
+                logger.info(f"Sent Telegram alert with chart for {signal.symbol}")
+            else:
+                # Send as text message
+                await self._bot.send_message(
+                    chat_id=self._chat_id,
+                    text=message,
+                    parse_mode=ParseMode.HTML,
+                    link_preview_options=self._link_preview,
+                )
+                logger.info(f"Sent Telegram alert for {signal.symbol}")
+
             return True
 
         except Exception as e:

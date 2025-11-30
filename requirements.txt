@@ -14,3 +14,13 @@ python-dotenv>=1.0.0
 # Logging
 loguru>=0.7.0
 
+# Charts
+mplfinance>=0.12.10b0
+matplotlib>=3.8.0
+pandas>=2.1.0
+
+# Charting
+mplfinance>=0.12.10b0
+matplotlib>=3.8.0
+pandas>=2.1.0
+

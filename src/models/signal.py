@@ -48,6 +48,9 @@ class PumpSignal:
     # Data source (which exchange provided technical data)
     data_source: str | None = None
 
+    # Chart image (PNG bytes)
+    chart_image: bytes | None = None
+
     @property
     def has_technical_data(self) -> bool:
         """Check if technical analysis data is available."""
@@ -84,27 +87,33 @@ class PumpSignal:
                 ath_emoji = "❌" if self.is_ath else "✅"
                 ath_text = f"ATH: {ath_emoji}"
                 if not self.is_ath:
-                    ath_diff = ((self.ath_price - self.current_price) / self.current_price) * 100
+                    ath_diff = (
+                        (self.ath_price - self.current_price) / self.current_price
+                    ) * 100
                     ath_text += f" ({ath_diff:.1f}% below)"
             else:
                 ath_text = None
 
-            lines.extend([
-                "",
-                "<b>━━━ Technical Analysis ━━━</b>",
-                "",
-                f"<b>RSI:</b> {rsi_1m_emoji} 1m: {rsi_1m_text} | {rsi_1h_emoji} 1h: {rsi_1h_text}",
-                f"<b>Trend:</b> {trend_4h_emoji} 4H | {trend_1d_emoji} 1D",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "<b>━━━ Technical Analysis ━━━</b>",
+                    "",
+                    f"<b>RSI:</b> {rsi_1m_emoji} 1m: {rsi_1m_text} | {rsi_1h_emoji} 1h: {rsi_1h_text}",
+                    f"<b>Trend:</b> {trend_4h_emoji} 4H | {trend_1d_emoji} 1D",
+                ]
+            )
 
             if ath_text:
                 lines.append(f"<b>{ath_text}</b>")
 
-        lines.extend([
-            "",
-            f"<b>Time:</b> {local_time.strftime('%H:%M:%S')} (UTC+3)",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                f"<b>Time:</b> {local_time.strftime('%H:%M:%S')} (UTC+3)",
+                "",
+            ]
+        )
 
         # Exchange links
         exchange_links = self._format_exchange_links()
