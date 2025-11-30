@@ -99,7 +99,7 @@ class PumpSignal:
                     "",
                     "<b>━━━ Technical Analysis ━━━</b>",
                     "",
-                    f"<b>RSI:</b> {rsi_1m_emoji} 1m: {rsi_1m_text} | {rsi_1h_emoji} 1h: {rsi_1h_text}",
+                    f"<b>RSI:</b> {rsi_1m_emoji} 1M: {rsi_1m_text} | {rsi_1h_emoji} 1H: {rsi_1h_text}",
                     f"<b>Trend:</b> {trend_4h_emoji} 4H | {trend_1d_emoji} 1D",
                 ]
             )
