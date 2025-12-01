@@ -159,6 +159,7 @@ class GlobalStats:
     total_hit_50pct: int = 0
     total_full_reversal: int = 0
     avg_time_to_50pct_seconds: float | None = None
+    avg_time_to_100pct_seconds: float | None = None
     
     # Today's stats
     today_pumps: int = 0

@@ -53,11 +53,21 @@ class StatsFormatter:
         # Only show rates if we have completed pumps
         completed = stats.total_pumps - stats.active_monitoring
         if completed > 0:
+            # Format average time to 100%
+            avg_time_100 = "N/A"
+            if stats.avg_time_to_100pct_seconds:
+                hours_100 = stats.avg_time_to_100pct_seconds / 3600
+                if hours_100 < 1:
+                    avg_time_100 = f"{stats.avg_time_to_100pct_seconds / 60:.0f}m"
+                else:
+                    avg_time_100 = f"{hours_100:.1f}h"
+            
             lines.extend(
                 [
                     f"✅ 50% Retrace Rate: <b>{stats.pct_hit_50pct:.0f}%</b>",
                     f"⏱️ Avg Time to 50%: <b>{avg_time}</b>",
                     f"🎯 Full Reversal Rate: <b>{stats.pct_full_reversal:.0f}%</b>",
+                    f"⏱️ Avg Time to 100%: <b>{avg_time_100}</b>",
                     "",
                 ]
             )
@@ -92,9 +102,6 @@ class StatsFormatter:
 
             if stats.active_monitoring > 0:
                 lines.append(f"🔄 Being tracked: <b>{stats.active_monitoring}</b>")
-
-            if stats.today_hit_50pct > 0:
-                lines.append(f"✅ Successful reversals: <b>{stats.today_hit_50pct}</b>")
         else:
             lines.append("<i>No pumps recorded today</i>")
 

@@ -260,7 +260,8 @@ class Database:
                 SUM(CASE WHEN status = 'monitoring' THEN 1 ELSE 0 END) as monitoring,
                 SUM(CASE WHEN status != 'monitoring' AND time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50,
                 SUM(CASE WHEN status != 'monitoring' AND returned_to_prepump = 1 THEN 1 ELSE 0 END) as full_reversal,
-                AVG(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN time_to_50pct_retrace END) as avg_time_50
+                AVG(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN time_to_50pct_retrace END) as avg_time_50,
+                AVG(CASE WHEN time_to_100pct_retrace IS NOT NULL THEN time_to_100pct_retrace END) as avg_time_100
             FROM pump_records
         """)
         overall = await cursor.fetchone()
@@ -316,6 +317,7 @@ class Database:
             total_hit_50pct=overall["hit_50"] or 0,
             total_full_reversal=overall["full_reversal"] or 0,
             avg_time_to_50pct_seconds=overall["avg_time_50"],
+            avg_time_to_100pct_seconds=overall["avg_time_100"],
             today_pumps=today["total"] or 0,
             today_hit_50pct=today["hit_50"] or 0,
             top_coins=top_coins,
