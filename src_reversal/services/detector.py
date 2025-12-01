@@ -230,9 +230,28 @@ class ReversalDetector:
             
             # Skip if not a valid reversal signal
             if not score.is_valid_signal():
-                logger.debug(
-                    f"Skipping {symbol}: no Tier-1 signal "
-                    f"(score: {score.total_score}/{score.max_possible_score})"
+                # Build rejection reason
+                resistance_status = "✓" if score.nearest_resistance else "✗"
+                
+                # Get confluence factors
+                confluence_factors = []
+                if score.sell_ratio and score.sell_ratio >= 0.55:
+                    confluence_factors.append(f"sell:{score.sell_ratio*100:.0f}%")
+                if score.rsi_1h and score.rsi_1h >= 65:
+                    confluence_factors.append(f"rsi1h:{score.rsi_1h:.0f}")
+                if score.rsi_1m and score.rsi_1m >= 65:
+                    confluence_factors.append(f"rsi1m:{score.rsi_1m:.0f}")
+                if score.macd_bearish:
+                    confluence_factors.append("macd")
+                if score.funding_rate and score.funding_rate >= 0.05:
+                    confluence_factors.append(f"fund:{score.funding_rate:.3f}%")
+                
+                confluence_str = ", ".join(confluence_factors) if confluence_factors else "none"
+                
+                logger.info(
+                    f"⏭️ {symbol} +{change_pct:.1f}% rejected: "
+                    f"resistance={resistance_status}, confluence=[{confluence_str}], "
+                    f"score={score.total_score}/{score.max_possible_score}"
                 )
                 return None
             

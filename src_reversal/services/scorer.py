@@ -81,25 +81,25 @@ class ReversalScorer:
     CORE_HTF_RESISTANCE = 50     # Near high timeframe resistance - MANDATORY
     
     # Confluence factors (additional confirmation)
-    FACTOR_SELL_VOLUME = 35      # High sell volume ratio (>65%)
-    FACTOR_FUNDING_HIGH = 30     # High positive funding (0.2-1%)
-    FACTOR_FUNDING_EXTREME = 40  # Extreme positive funding (>1%)
-    FACTOR_RSI_HIGH = 25         # RSI > 70 on multiple timeframes
-    FACTOR_MACD_BEARISH = 25     # MACD bearish cross
+    FACTOR_SELL_VOLUME = 30      # High sell volume ratio (>55%)
+    FACTOR_FUNDING_HIGH = 25     # High positive funding
+    FACTOR_FUNDING_EXTREME = 35  # Extreme positive funding
+    FACTOR_RSI_HIGH = 35         # RSI hot on multiple timeframes (up to 20+15)
+    FACTOR_MACD_BEARISH = 20     # MACD bearish cross
     FACTOR_VOLUME_SPIKE = 15     # Volume much higher than average
     FACTOR_UPPER_WICK = 10       # Long upper wicks (selling pressure)
     
     # Thresholds
-    RESISTANCE_DISTANCE_PCT = 1.5   # Max distance to resistance (%) - tighter
-    RSI_OVERBOUGHT = 70             # Lowered from 80 for more signals with resistance
-    SELL_VOLUME_THRESHOLD = 0.60    # 60% sell volume
-    FUNDING_HIGH_THRESHOLD = 0.1    # 0.1%
-    FUNDING_EXTREME_THRESHOLD = 0.5 # 0.5%
-    FUNDING_DANGER_THRESHOLD = -0.05 # Negative funding warning
-    VOLUME_SPIKE_MULTIPLIER = 2.5   # 2.5x average volume
+    RESISTANCE_DISTANCE_PCT = 3.0   # Max distance to resistance (%) - allow some margin
+    RSI_OVERBOUGHT = 65             # RSI above 65 is getting hot
+    SELL_VOLUME_THRESHOLD = 0.55    # 55% sell volume (more than half)
+    FUNDING_HIGH_THRESHOLD = 0.05   # 0.05%
+    FUNDING_EXTREME_THRESHOLD = 0.3 # 0.3%
+    FUNDING_DANGER_THRESHOLD = -0.03 # Negative funding warning
+    VOLUME_SPIKE_MULTIPLIER = 2.0   # 2x average volume
     
     # Minimum confluence required (besides resistance)
-    MIN_CONFLUENCE_SCORE = 35  # Need at least this many points from other factors
+    MIN_CONFLUENCE_SCORE = 25  # Need at least this many points from other factors
     
     # Strength thresholds (percentage of max score)
     STRONG_THRESHOLD = 65    # 65%+ = Strong signal (⚡⚡⚡)
@@ -267,10 +267,18 @@ class ReversalScorer:
         rsi_1m_valid = rsi_1m is not None and rsi_1m == rsi_1m  # NaN != NaN
         rsi_1h_valid = rsi_1h is not None and rsi_1h == rsi_1h
         
-        if rsi_1h_valid and rsi_1h >= self.RSI_OVERBOUGHT:
-            rsi_score += 15
-        if rsi_1m_valid and rsi_1m >= self.RSI_OVERBOUGHT:
-            rsi_score += 10
+        # RSI scoring: higher RSI = more points
+        if rsi_1h_valid:
+            if rsi_1h >= 75:
+                rsi_score += 20
+            elif rsi_1h >= self.RSI_OVERBOUGHT:
+                rsi_score += 12
+        
+        if rsi_1m_valid:
+            if rsi_1m >= 75:
+                rsi_score += 15
+            elif rsi_1m >= self.RSI_OVERBOUGHT:
+                rsi_score += 8
         
         confluence_score += rsi_score
         

@@ -215,14 +215,18 @@ def find_nearest_resistance(
     current_price: float,
     max_distance_pct: float = 5.0,
 ) -> PriceLevel | None:
-    """Find the nearest resistance level above current price.
+    """Find the nearest resistance level near current price.
+
+    For pump reversals, we need to find resistance that the price is:
+    - Currently AT (just reached or slightly passed)
+    - Or approaching from below
 
     Args:
         highs: List of high prices.
         lows: List of low prices.
         closes: List of close prices.
         current_price: Current price to search from.
-        max_distance_pct: Maximum distance in percent to consider.
+        max_distance_pct: Maximum distance in percent to consider (both directions).
 
     Returns:
         Nearest resistance level or None if not found.
@@ -233,27 +237,27 @@ def find_nearest_resistance(
         closes=closes,
         current_price=current_price,
         swing_window=3,
-        cluster_threshold=0.5,
+        cluster_threshold=0.8,  # More lenient clustering
         min_touches=2,
-        max_levels=10,
+        max_levels=15,
     )
 
-    # Filter for resistance above current price
+    # Filter for resistance levels NEAR current price (above OR below)
+    # After a pump, price may have just broken through resistance
     resistances = [
         level for level in levels
         if level.level_type == LevelType.RESISTANCE
-        and level.price > current_price
     ]
 
     if not resistances:
         return None
 
-    # Sort by distance
-    resistances.sort(key=lambda x: x.price)
+    # Sort by absolute distance to current price (not just above)
+    resistances.sort(key=lambda x: abs(x.price - current_price))
 
-    # Get nearest that's within max distance
+    # Get nearest that's within max distance (either direction)
     nearest = resistances[0]
-    distance_pct = (nearest.price - current_price) / current_price * 100
+    distance_pct = abs(nearest.price - current_price) / current_price * 100
 
     if distance_pct <= max_distance_pct:
         return nearest
