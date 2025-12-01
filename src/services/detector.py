@@ -52,20 +52,30 @@ class PumpDetector:
         self._alerted_symbols: set[str] = set()
 
     async def load_alerted_symbols(self) -> None:
-        """Load recently alerted symbols from database to prevent duplicates on restart."""
+        """Load currently monitored symbols from database to prevent duplicates on restart."""
         if not self._tracker:
             return
         
-        # Get symbols of pumps detected in the last 24 hours
-        recent_pumps = await self._tracker._db.get_recent_pumps(hours=24)
-        self._alerted_symbols = {p.symbol for p in recent_pumps}
+        # Only load symbols that are CURRENTLY being monitored (not completed ones)
+        # This allows coins to pump again after their monitoring period ends
+        active_pumps = await self._tracker._db.get_active_pumps()
+        self._alerted_symbols = {p.symbol for p in active_pumps}
         
         from loguru import logger
-        logger.info(f"Loaded {len(self._alerted_symbols)} recently alerted symbols from database")
+        logger.info(f"Loaded {len(self._alerted_symbols)} currently monitored symbols")
 
     def clear_alerts(self) -> None:
         """Clear the alerted symbols cache."""
         self._alerted_symbols.clear()
+
+    def remove_completed_alerts(self, symbols: list[str]) -> None:
+        """Remove completed symbols from alerted cache so they can pump again.
+        
+        Args:
+            symbols: List of symbols to remove.
+        """
+        for symbol in symbols:
+            self._alerted_symbols.discard(symbol)
 
     async def scan_for_pumps(self) -> list[PumpSignal]:
         """Scan all futures for pump anomalies.

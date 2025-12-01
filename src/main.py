@@ -137,6 +137,8 @@ async def run_scanner() -> None:
                         completed = await tracker.check_active_pumps()
                         if completed:
                             logger.info(f"Completed monitoring for {len(completed)} pump(s)")
+                            # Allow these coins to be alerted again if they pump
+                            detector.remove_completed_alerts([p.symbol for p in completed])
 
                     # Update stats hourly
                     current_hour = datetime.now(timezone.utc).hour
