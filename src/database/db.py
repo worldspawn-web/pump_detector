@@ -253,24 +253,24 @@ class Database:
     
     async def get_global_stats(self) -> GlobalStats:
         """Calculate global statistics across all coins."""
-        # Overall stats
+        # Overall stats - only count successes from COMPLETED pumps
         cursor = await self._conn.execute("""
             SELECT 
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'monitoring' THEN 1 ELSE 0 END) as monitoring,
-                SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50,
-                SUM(CASE WHEN returned_to_prepump = 1 THEN 1 ELSE 0 END) as full_reversal,
+                SUM(CASE WHEN status != 'monitoring' AND time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50,
+                SUM(CASE WHEN status != 'monitoring' AND returned_to_prepump = 1 THEN 1 ELSE 0 END) as full_reversal,
                 AVG(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN time_to_50pct_retrace END) as avg_time_50
             FROM pump_records
         """)
         overall = await cursor.fetchone()
         
-        # Today's stats
+        # Today's stats - only count successes from COMPLETED pumps
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         cursor = await self._conn.execute("""
             SELECT 
                 COUNT(*) as total,
-                SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50
+                SUM(CASE WHEN status != 'monitoring' AND time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50
             FROM pump_records
             WHERE detected_at >= ?
         """, (today_start.isoformat(),))
