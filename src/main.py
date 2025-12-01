@@ -84,9 +84,6 @@ async def run_scanner() -> None:
     last_stats_hour = -1
 
     try:
-        # Send startup message
-        await telegram.send_startup_message()
-
         # Initialize all API clients
         async with (
             MEXCClient(settings) as mexc_client,
