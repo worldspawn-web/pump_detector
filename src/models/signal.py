@@ -177,8 +177,8 @@ class PumpSignal:
                 ]
             )
 
-        # Reversal history section (only show if we have enough data)
-        if self.reversal_history and self.reversal_history.total_pumps >= 3:
+        # Reversal history section (show if at least 1 previous pump)
+        if self.reversal_history and self.reversal_history.total_pumps >= 1:
             lines.append("")
             lines.append(self._format_reversal_history())
 

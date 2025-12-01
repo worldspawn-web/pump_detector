@@ -61,7 +61,7 @@ class StatsFormatter:
                     avg_time_100 = f"{stats.avg_time_to_100pct_seconds / 60:.0f}m"
                 else:
                     avg_time_100 = f"{hours_100:.1f}h"
-            
+
             lines.extend(
                 [
                     f"✅ 50% Retrace Rate: <b>{stats.pct_hit_50pct:.0f}%</b>",
@@ -72,8 +72,8 @@ class StatsFormatter:
                 ]
             )
 
-        # Top performers
-        if stats.top_coins:
+        # Top performers - only show if at least 5 coins have history
+        if stats.top_coins and len(stats.top_coins) >= 5:
             lines.append("━━━ <b>Top Reversal Coins</b> ━━━")
             lines.append("")
             medals = ["🥇", "🥈", "🥉", "4.", "5."]
