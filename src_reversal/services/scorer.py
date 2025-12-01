@@ -77,31 +77,34 @@ class ReversalScore:
 class ReversalScorer:
     """Calculates confluence score for reversal probability."""
     
-    # Tier 1 signals (high impact, 40-50 points each)
-    TIER1_HTF_RESISTANCE = 50    # Near high timeframe resistance
-    TIER1_SELL_VOLUME = 45       # High sell volume ratio (>65%)
-    TIER1_FUNDING_HIGH = 40      # High positive funding (0.2-1%)
-    TIER1_FUNDING_EXTREME = 50   # Extreme positive funding (>1%)
+    # CORE REQUIREMENT (must have)
+    CORE_HTF_RESISTANCE = 50     # Near high timeframe resistance - MANDATORY
     
-    # Tier 2 signals (confirmation, 15-25 points each)
-    TIER2_RSI_HIGH = 25          # RSI > 80 on multiple timeframes
-    TIER2_MACD_BEARISH = 20      # MACD bearish cross
-    TIER2_VOLUME_SPIKE = 20      # Volume much higher than average
-    TIER2_UPPER_WICK = 15        # Long upper wicks (selling pressure)
+    # Confluence factors (additional confirmation)
+    FACTOR_SELL_VOLUME = 35      # High sell volume ratio (>65%)
+    FACTOR_FUNDING_HIGH = 30     # High positive funding (0.2-1%)
+    FACTOR_FUNDING_EXTREME = 40  # Extreme positive funding (>1%)
+    FACTOR_RSI_HIGH = 25         # RSI > 70 on multiple timeframes
+    FACTOR_MACD_BEARISH = 25     # MACD bearish cross
+    FACTOR_VOLUME_SPIKE = 15     # Volume much higher than average
+    FACTOR_UPPER_WICK = 10       # Long upper wicks (selling pressure)
     
     # Thresholds
-    RESISTANCE_DISTANCE_PCT = 2.0   # Max distance to resistance (%)
-    RSI_OVERBOUGHT = 80
-    SELL_VOLUME_THRESHOLD = 0.65    # 65% sell volume
-    FUNDING_HIGH_THRESHOLD = 0.2    # 0.2%
-    FUNDING_EXTREME_THRESHOLD = 1.0 # 1.0%
-    FUNDING_DANGER_THRESHOLD = -0.1 # Negative funding warning
-    VOLUME_SPIKE_MULTIPLIER = 3.0   # 3x average volume
+    RESISTANCE_DISTANCE_PCT = 1.5   # Max distance to resistance (%) - tighter
+    RSI_OVERBOUGHT = 70             # Lowered from 80 for more signals with resistance
+    SELL_VOLUME_THRESHOLD = 0.60    # 60% sell volume
+    FUNDING_HIGH_THRESHOLD = 0.1    # 0.1%
+    FUNDING_EXTREME_THRESHOLD = 0.5 # 0.5%
+    FUNDING_DANGER_THRESHOLD = -0.05 # Negative funding warning
+    VOLUME_SPIKE_MULTIPLIER = 2.5   # 2.5x average volume
+    
+    # Minimum confluence required (besides resistance)
+    MIN_CONFLUENCE_SCORE = 35  # Need at least this many points from other factors
     
     # Strength thresholds (percentage of max score)
-    STRONG_THRESHOLD = 70    # 70%+ = Strong signal
-    MEDIUM_THRESHOLD = 45    # 45-70% = Medium signal
-    WEAK_THRESHOLD = 25      # 25-45% = Weak signal
+    STRONG_THRESHOLD = 65    # 65%+ = Strong signal (⚡⚡⚡)
+    MEDIUM_THRESHOLD = 45    # 45-65% = Medium signal (⚡⚡)
+    WEAK_THRESHOLD = 30      # 30-45% = Weak signal (⚡)
     
     def __init__(self) -> None:
         """Initialize the scorer."""
@@ -137,19 +140,21 @@ class ReversalScorer:
         """
         factors = []
         warnings = []
-        has_tier1 = False
+        has_resistance = False  # CORE requirement
+        confluence_score = 0    # Score from other factors
         
         # Calculate max possible score based on available data
-        max_score = self.TIER1_HTF_RESISTANCE + self.TIER2_RSI_HIGH + self.TIER2_MACD_BEARISH
+        max_score = self.CORE_HTF_RESISTANCE + self.FACTOR_RSI_HIGH + self.FACTOR_MACD_BEARISH
         
         if sell_ratio is not None:
-            max_score += self.TIER1_SELL_VOLUME
+            max_score += self.FACTOR_SELL_VOLUME
         if funding_rate is not None:
-            max_score += self.TIER1_FUNDING_EXTREME  # Use max possible
+            max_score += self.FACTOR_FUNDING_EXTREME  # Use max possible
         if klines_1m:
-            max_score += self.TIER2_VOLUME_SPIKE + self.TIER2_UPPER_WICK
+            max_score += self.FACTOR_VOLUME_SPIKE + self.FACTOR_UPPER_WICK
         
-        # === TIER 1: HTF Resistance ===
+        # === CORE REQUIREMENT: HTF Resistance ===
+        # Without nearby resistance, NO signal will be sent
         nearest_resistance = None
         if klines_4h or klines_1d:
             nearest_resistance = self._check_htf_resistance(
@@ -159,33 +164,33 @@ class ReversalScorer:
             )
             
             if nearest_resistance:
-                has_tier1 = True
+                has_resistance = True
                 distance_pct = (nearest_resistance.price - current_price) / current_price * 100
                 factors.append(ScoringFactor(
                     name="HTF Resistance",
-                    score=self.TIER1_HTF_RESISTANCE,
-                    max_score=self.TIER1_HTF_RESISTANCE,
+                    score=self.CORE_HTF_RESISTANCE,
+                    max_score=self.CORE_HTF_RESISTANCE,
                     triggered=True,
                     value=nearest_resistance.price,
-                    description=f"Within {distance_pct:.1f}% of resistance ({nearest_resistance.touches} touches)",
+                    description=f"Within {distance_pct:.1f}% of {nearest_resistance.timeframe} resistance",
                 ))
             else:
                 factors.append(ScoringFactor(
                     name="HTF Resistance",
                     score=0,
-                    max_score=self.TIER1_HTF_RESISTANCE,
+                    max_score=self.CORE_HTF_RESISTANCE,
                     triggered=False,
-                    description="No nearby resistance found",
+                    description="No nearby resistance - signal rejected",
                 ))
         
-        # === TIER 1: Sell Volume Ratio ===
+        # === CONFLUENCE: Sell Volume Ratio ===
         if sell_ratio is not None:
             if sell_ratio >= self.SELL_VOLUME_THRESHOLD:
-                has_tier1 = True
+                confluence_score += self.FACTOR_SELL_VOLUME
                 factors.append(ScoringFactor(
                     name="Sell Volume",
-                    score=self.TIER1_SELL_VOLUME,
-                    max_score=self.TIER1_SELL_VOLUME,
+                    score=self.FACTOR_SELL_VOLUME,
+                    max_score=self.FACTOR_SELL_VOLUME,
                     triggered=True,
                     value=sell_ratio,
                     description=f"{sell_ratio*100:.0f}% sell volume",
@@ -194,32 +199,32 @@ class ReversalScorer:
                 factors.append(ScoringFactor(
                     name="Sell Volume",
                     score=0,
-                    max_score=self.TIER1_SELL_VOLUME,
+                    max_score=self.FACTOR_SELL_VOLUME,
                     triggered=False,
                     value=sell_ratio,
-                    description=f"{sell_ratio*100:.0f}% sell volume (need {self.SELL_VOLUME_THRESHOLD*100:.0f}%+)",
+                    description=f"{sell_ratio*100:.0f}% sell (need {self.SELL_VOLUME_THRESHOLD*100:.0f}%+)",
                 ))
         
-        # === TIER 1: Funding Rate ===
+        # === CONFLUENCE: Funding Rate ===
         if funding_rate is not None:
             if funding_rate >= self.FUNDING_EXTREME_THRESHOLD:
                 # Extreme positive funding - very bullish for shorting
-                has_tier1 = True
+                confluence_score += self.FACTOR_FUNDING_EXTREME
                 factors.append(ScoringFactor(
                     name="Funding Rate",
-                    score=self.TIER1_FUNDING_EXTREME,
-                    max_score=self.TIER1_FUNDING_EXTREME,
+                    score=self.FACTOR_FUNDING_EXTREME,
+                    max_score=self.FACTOR_FUNDING_EXTREME,
                     triggered=True,
                     value=funding_rate,
                     description=f"Extreme +{funding_rate:.3f}% (longs pay heavily)",
                 ))
             elif funding_rate >= self.FUNDING_HIGH_THRESHOLD:
                 # High positive funding
-                has_tier1 = True
+                confluence_score += self.FACTOR_FUNDING_HIGH
                 factors.append(ScoringFactor(
                     name="Funding Rate",
-                    score=self.TIER1_FUNDING_HIGH,
-                    max_score=self.TIER1_FUNDING_EXTREME,
+                    score=self.FACTOR_FUNDING_HIGH,
+                    max_score=self.FACTOR_FUNDING_EXTREME,
                     triggered=True,
                     value=funding_rate,
                     description=f"High +{funding_rate:.3f}%",
@@ -230,7 +235,7 @@ class ReversalScorer:
                 factors.append(ScoringFactor(
                     name="Funding Rate",
                     score=0,
-                    max_score=self.TIER1_FUNDING_EXTREME,
+                    max_score=self.FACTOR_FUNDING_EXTREME,
                     triggered=False,
                     value=funding_rate,
                     description=f"Negative {funding_rate:.3f}% - squeeze risk!",
@@ -239,13 +244,13 @@ class ReversalScorer:
                 factors.append(ScoringFactor(
                     name="Funding Rate",
                     score=0,
-                    max_score=self.TIER1_FUNDING_EXTREME,
+                    max_score=self.FACTOR_FUNDING_EXTREME,
                     triggered=False,
                     value=funding_rate,
                     description=f"Neutral {funding_rate:.3f}%",
                 ))
         
-        # === TIER 2: RSI ===
+        # === CONFLUENCE: RSI ===
         rsi_1h = None
         rsi_1m = None
         rsi_score = 0
@@ -267,34 +272,39 @@ class ReversalScorer:
         if rsi_1m_valid and rsi_1m >= self.RSI_OVERBOUGHT:
             rsi_score += 10
         
+        confluence_score += rsi_score
+        
         rsi_1m_str = f"{rsi_1m:.0f}" if rsi_1m_valid else "N/A"
         rsi_1h_str = f"{rsi_1h:.0f}" if rsi_1h_valid else "N/A"
         
         factors.append(ScoringFactor(
             name="RSI",
             score=rsi_score,
-            max_score=self.TIER2_RSI_HIGH,
+            max_score=self.FACTOR_RSI_HIGH,
             triggered=rsi_score > 0,
             value=(rsi_1m, rsi_1h),
             description=f"1M: {rsi_1m_str} | 1H: {rsi_1h_str}",
         ))
         
-        # === TIER 2: MACD Bearish Cross ===
+        # === CONFLUENCE: MACD Bearish Cross ===
         macd_bearish = False
         if klines_1h:
             closes_1h = [k["close"] for k in klines_1h]
             macd_line, signal_line, _ = calculate_macd(closes_1h)
             macd_bearish = is_macd_bearish_cross(macd_line, signal_line)
         
+        if macd_bearish:
+            confluence_score += self.FACTOR_MACD_BEARISH
+        
         factors.append(ScoringFactor(
             name="MACD",
-            score=self.TIER2_MACD_BEARISH if macd_bearish else 0,
-            max_score=self.TIER2_MACD_BEARISH,
+            score=self.FACTOR_MACD_BEARISH if macd_bearish else 0,
+            max_score=self.FACTOR_MACD_BEARISH,
             triggered=macd_bearish,
             description="Bearish cross ✓" if macd_bearish else "No bearish cross",
         ))
         
-        # === TIER 2: Volume Spike ===
+        # === CONFLUENCE: Volume Spike ===
         volume_ratio = None
         if klines_1m and len(klines_1m) >= 20:
             recent_vol = sum(k.get("volume", k.get("vol", 0)) for k in klines_1m[-5:]) / 5
@@ -304,10 +314,11 @@ class ReversalScorer:
                 volume_ratio = recent_vol / avg_vol
                 
                 if volume_ratio >= self.VOLUME_SPIKE_MULTIPLIER:
+                    confluence_score += self.FACTOR_VOLUME_SPIKE
                     factors.append(ScoringFactor(
                         name="Volume Spike",
-                        score=self.TIER2_VOLUME_SPIKE,
-                        max_score=self.TIER2_VOLUME_SPIKE,
+                        score=self.FACTOR_VOLUME_SPIKE,
+                        max_score=self.FACTOR_VOLUME_SPIKE,
                         triggered=True,
                         value=volume_ratio,
                         description=f"{volume_ratio:.1f}x average volume",
@@ -316,19 +327,21 @@ class ReversalScorer:
                     factors.append(ScoringFactor(
                         name="Volume Spike",
                         score=0,
-                        max_score=self.TIER2_VOLUME_SPIKE,
+                        max_score=self.FACTOR_VOLUME_SPIKE,
                         triggered=False,
                         value=volume_ratio,
-                        description=f"{volume_ratio:.1f}x average volume (need {self.VOLUME_SPIKE_MULTIPLIER}x)",
+                        description=f"{volume_ratio:.1f}x avg (need {self.VOLUME_SPIKE_MULTIPLIER}x)",
                     ))
         
-        # === TIER 2: Upper Wick Analysis ===
+        # === CONFLUENCE: Upper Wick Analysis ===
         if klines_1m and len(klines_1m) >= 5:
             wick_score = self._analyze_upper_wicks(klines_1m[-10:])
+            if wick_score > 0:
+                confluence_score += wick_score
             factors.append(ScoringFactor(
                 name="Upper Wicks",
                 score=wick_score,
-                max_score=self.TIER2_UPPER_WICK,
+                max_score=self.FACTOR_UPPER_WICK,
                 triggered=wick_score > 0,
                 description="Selling pressure detected" if wick_score > 0 else "Normal wicks",
             ))
@@ -337,9 +350,15 @@ class ReversalScorer:
         total_score = sum(f.score for f in factors)
         
         # Determine strength
+        # CORE REQUIREMENT: Must have resistance nearby
+        # CONFLUENCE REQUIREMENT: Must have minimum additional factors
         score_pct = (total_score / max_score * 100) if max_score > 0 else 0
         
-        if not has_tier1:
+        if not has_resistance:
+            # No resistance = no signal, period
+            strength = SignalStrength.NONE
+        elif confluence_score < self.MIN_CONFLUENCE_SCORE:
+            # Has resistance but not enough confluence
             strength = SignalStrength.NONE
         elif score_pct >= self.STRONG_THRESHOLD:
             strength = SignalStrength.STRONG
@@ -350,12 +369,19 @@ class ReversalScorer:
         else:
             strength = SignalStrength.NONE
         
+        # Log rejection reasons
+        if has_resistance and confluence_score < self.MIN_CONFLUENCE_SCORE:
+            logger.debug(
+                f"{symbol}: Has resistance but confluence too low "
+                f"({confluence_score}/{self.MIN_CONFLUENCE_SCORE} needed)"
+            )
+        
         return ReversalScore(
             total_score=total_score,
             max_possible_score=max_score,
             strength=strength,
             factors=factors,
-            has_tier1_signal=has_tier1,
+            has_tier1_signal=has_resistance and confluence_score >= self.MIN_CONFLUENCE_SCORE,
             warnings=warnings,
             nearest_resistance=nearest_resistance,
             rsi_1m=rsi_1m,
@@ -445,9 +471,9 @@ class ReversalScorer:
         
         # If more than 30% of candles have long upper wicks
         if len(klines) > 0 and long_wick_count / len(klines) >= 0.3:
-            return self.TIER2_UPPER_WICK
+            return self.FACTOR_UPPER_WICK
         elif long_wick_count >= 2:
-            return self.TIER2_UPPER_WICK // 2
+            return self.FACTOR_UPPER_WICK // 2
         
         return 0
 
