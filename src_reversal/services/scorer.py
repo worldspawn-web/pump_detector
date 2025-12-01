@@ -77,8 +77,8 @@ class ReversalScore:
 class ReversalScorer:
     """Calculates confluence score for reversal probability."""
     
-    # CORE REQUIREMENT (must have)
-    CORE_HTF_RESISTANCE = 50     # Near high timeframe resistance - MANDATORY
+    # Core factors
+    CORE_HTF_RESISTANCE = 40     # Near high timeframe resistance
     
     # Confluence factors (additional confirmation)
     FACTOR_SELL_VOLUME = 30      # High sell volume ratio (>55%)
@@ -88,18 +88,21 @@ class ReversalScorer:
     FACTOR_MACD_BEARISH = 20     # MACD bearish cross
     FACTOR_VOLUME_SPIKE = 15     # Volume much higher than average
     FACTOR_UPPER_WICK = 10       # Long upper wicks (selling pressure)
+    FACTOR_EXTREME_PUMP = 30     # Extreme pump (>15%) acts as its own resistance
     
     # Thresholds
-    RESISTANCE_DISTANCE_PCT = 3.0   # Max distance to resistance (%) - allow some margin
+    RESISTANCE_DISTANCE_PCT = 3.0   # Max distance to resistance (%)
     RSI_OVERBOUGHT = 65             # RSI above 65 is getting hot
+    RSI_EXTREME = 75                # RSI above 75 is very hot
     SELL_VOLUME_THRESHOLD = 0.55    # 55% sell volume (more than half)
     FUNDING_HIGH_THRESHOLD = 0.05   # 0.05%
     FUNDING_EXTREME_THRESHOLD = 0.3 # 0.3%
     FUNDING_DANGER_THRESHOLD = -0.03 # Negative funding warning
     VOLUME_SPIKE_MULTIPLIER = 2.0   # 2x average volume
+    EXTREME_PUMP_THRESHOLD = 15.0   # 15%+ pump is extreme
     
-    # Minimum confluence required (besides resistance)
-    MIN_CONFLUENCE_SCORE = 25  # Need at least this many points from other factors
+    # Minimum confluence required
+    MIN_CONFLUENCE_SCORE = 30  # Need at least this many points from confluence factors
     
     # Strength thresholds (percentage of max score)
     STRONG_THRESHOLD = 65    # 65%+ = Strong signal (⚡⚡⚡)
@@ -140,11 +143,12 @@ class ReversalScorer:
         """
         factors = []
         warnings = []
-        has_resistance = False  # CORE requirement
-        confluence_score = 0    # Score from other factors
+        has_resistance = False
+        has_extreme_pump = False
+        confluence_score = 0    # Score from confluence factors
         
         # Calculate max possible score based on available data
-        max_score = self.CORE_HTF_RESISTANCE + self.FACTOR_RSI_HIGH + self.FACTOR_MACD_BEARISH
+        max_score = self.CORE_HTF_RESISTANCE + self.FACTOR_RSI_HIGH + self.FACTOR_MACD_BEARISH + self.FACTOR_EXTREME_PUMP
         
         if sell_ratio is not None:
             max_score += self.FACTOR_SELL_VOLUME
@@ -153,8 +157,30 @@ class ReversalScorer:
         if klines_1m:
             max_score += self.FACTOR_VOLUME_SPIKE + self.FACTOR_UPPER_WICK
         
-        # === CORE REQUIREMENT: HTF Resistance ===
-        # Without nearby resistance, NO signal will be sent
+        # === CHECK: Extreme Pump ===
+        # Extreme pumps (>15%) create their own resistance at the top
+        if pump_percent >= self.EXTREME_PUMP_THRESHOLD:
+            has_extreme_pump = True
+            confluence_score += self.FACTOR_EXTREME_PUMP
+            factors.append(ScoringFactor(
+                name="Extreme Pump",
+                score=self.FACTOR_EXTREME_PUMP,
+                max_score=self.FACTOR_EXTREME_PUMP,
+                triggered=True,
+                value=pump_percent,
+                description=f"+{pump_percent:.1f}% creates local top",
+            ))
+        else:
+            factors.append(ScoringFactor(
+                name="Extreme Pump",
+                score=0,
+                max_score=self.FACTOR_EXTREME_PUMP,
+                triggered=False,
+                value=pump_percent,
+                description=f"+{pump_percent:.1f}% (need {self.EXTREME_PUMP_THRESHOLD}%+ for bonus)",
+            ))
+        
+        # === CHECK: HTF Resistance ===
         nearest_resistance = None
         if klines_4h or klines_1d:
             nearest_resistance = self._check_htf_resistance(
@@ -165,14 +191,14 @@ class ReversalScorer:
             
             if nearest_resistance:
                 has_resistance = True
-                distance_pct = (nearest_resistance.price - current_price) / current_price * 100
+                distance_pct = abs(nearest_resistance.price - current_price) / current_price * 100
                 factors.append(ScoringFactor(
                     name="HTF Resistance",
                     score=self.CORE_HTF_RESISTANCE,
                     max_score=self.CORE_HTF_RESISTANCE,
                     triggered=True,
                     value=nearest_resistance.price,
-                    description=f"Within {distance_pct:.1f}% of {nearest_resistance.timeframe} resistance",
+                    description=f"Within {distance_pct:.1f}% of {nearest_resistance.timeframe} level",
                 ))
             else:
                 factors.append(ScoringFactor(
@@ -180,7 +206,7 @@ class ReversalScorer:
                     score=0,
                     max_score=self.CORE_HTF_RESISTANCE,
                     triggered=False,
-                    description="No nearby resistance - signal rejected",
+                    description="No nearby historical resistance",
                 ))
         
         # === CONFLUENCE: Sell Volume Ratio ===
@@ -357,16 +383,33 @@ class ReversalScorer:
         # Calculate total score
         total_score = sum(f.score for f in factors)
         
-        # Determine strength
-        # CORE REQUIREMENT: Must have resistance nearby
-        # CONFLUENCE REQUIREMENT: Must have minimum additional factors
+        # Determine strength based on signal validity
+        # Valid signal requires EITHER:
+        # 1. Historical resistance nearby + confluence
+        # 2. Extreme pump (>15%) + high RSI (>75) = pump creates its own resistance
         score_pct = (total_score / max_score * 100) if max_score > 0 else 0
         
-        if not has_resistance:
-            # No resistance = no signal, period
-            strength = SignalStrength.NONE
-        elif confluence_score < self.MIN_CONFLUENCE_SCORE:
-            # Has resistance but not enough confluence
+        # Check if RSI indicates extreme overbought
+        has_extreme_rsi = (
+            (rsi_1h is not None and rsi_1h == rsi_1h and rsi_1h >= self.RSI_EXTREME) or
+            (rsi_1m is not None and rsi_1m == rsi_1m and rsi_1m >= self.RSI_EXTREME)
+        )
+        
+        # Determine if signal is valid
+        is_valid = False
+        
+        if has_resistance and confluence_score >= self.MIN_CONFLUENCE_SCORE:
+            # Classic setup: near resistance with confluence
+            is_valid = True
+        elif has_extreme_pump and has_extreme_rsi:
+            # Extreme pump with extreme RSI - the pump itself is resistance
+            is_valid = True
+        elif has_extreme_pump and confluence_score >= self.MIN_CONFLUENCE_SCORE + 10:
+            # Extreme pump with strong confluence (sell volume, MACD, funding)
+            is_valid = True
+        
+        # Determine strength level
+        if not is_valid:
             strength = SignalStrength.NONE
         elif score_pct >= self.STRONG_THRESHOLD:
             strength = SignalStrength.STRONG
@@ -375,21 +418,14 @@ class ReversalScorer:
         elif score_pct >= self.WEAK_THRESHOLD:
             strength = SignalStrength.WEAK
         else:
-            strength = SignalStrength.NONE
-        
-        # Log rejection reasons
-        if has_resistance and confluence_score < self.MIN_CONFLUENCE_SCORE:
-            logger.debug(
-                f"{symbol}: Has resistance but confluence too low "
-                f"({confluence_score}/{self.MIN_CONFLUENCE_SCORE} needed)"
-            )
+            strength = SignalStrength.WEAK  # Valid signal but low score = weak
         
         return ReversalScore(
             total_score=total_score,
             max_possible_score=max_score,
             strength=strength,
             factors=factors,
-            has_tier1_signal=has_resistance and confluence_score >= self.MIN_CONFLUENCE_SCORE,
+            has_tier1_signal=is_valid,
             warnings=warnings,
             nearest_resistance=nearest_resistance,
             rsi_1m=rsi_1m,

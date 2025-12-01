@@ -232,6 +232,7 @@ class ReversalDetector:
             if not score.is_valid_signal():
                 # Build rejection reason
                 resistance_status = "✓" if score.nearest_resistance else "✗"
+                extreme_pump = change_pct >= 15.0
                 
                 # Get confluence factors
                 confluence_factors = []
@@ -247,10 +248,11 @@ class ReversalDetector:
                     confluence_factors.append(f"fund:{score.funding_rate:.3f}%")
                 
                 confluence_str = ", ".join(confluence_factors) if confluence_factors else "none"
+                pump_marker = "🔥" if extreme_pump else ""
                 
                 logger.info(
-                    f"⏭️ {symbol} +{change_pct:.1f}% rejected: "
-                    f"resistance={resistance_status}, confluence=[{confluence_str}], "
+                    f"⏭️ {symbol} +{change_pct:.1f}%{pump_marker} rejected: "
+                    f"res={resistance_status}, conf=[{confluence_str}], "
                     f"score={score.total_score}/{score.max_possible_score}"
                 )
                 return None
