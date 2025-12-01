@@ -109,6 +109,9 @@ async def run_scanner() -> None:
                 bingx_client,
                 tracker,
             )
+            
+            # Load recently alerted symbols to prevent duplicates on restart
+            await detector.load_alerted_symbols()
 
             # Create initial stats message
             logger.info("Creating initial stats message...")

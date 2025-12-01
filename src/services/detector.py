@@ -51,6 +51,18 @@ class PumpDetector:
         self._chart_generator = ChartGenerator()
         self._alerted_symbols: set[str] = set()
 
+    async def load_alerted_symbols(self) -> None:
+        """Load recently alerted symbols from database to prevent duplicates on restart."""
+        if not self._tracker:
+            return
+        
+        # Get symbols of pumps detected in the last 24 hours
+        recent_pumps = await self._tracker._db.get_recent_pumps(hours=24)
+        self._alerted_symbols = {p.symbol for p in recent_pumps}
+        
+        from loguru import logger
+        logger.info(f"Loaded {len(self._alerted_symbols)} recently alerted symbols from database")
+
     def clear_alerts(self) -> None:
         """Clear the alerted symbols cache."""
         self._alerted_symbols.clear()
