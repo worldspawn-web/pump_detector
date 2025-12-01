@@ -179,10 +179,13 @@ class PumpDetector:
 
             # Technical analysis data (default empty)
             rsi_1m = None
+            rsi_15m = None
             rsi_1h = None
             trend_1h = Trend.NEUTRAL
             trend_4h = Trend.NEUTRAL
             trend_1d = Trend.NEUTRAL
+            trend_1w = None
+            funding_rate = None
             is_ath = False
             ath_price = None
             data_source = None
@@ -194,11 +197,21 @@ class PumpDetector:
             if klines_result:
                 data_source, klines = klines_result
                 rsi_1m = self._calculate_rsi_from_klines(klines.get("1m", []))
+                rsi_15m = self._calculate_rsi_from_klines(klines.get("15m", []))
                 rsi_1h = self._calculate_rsi_from_klines(klines.get("1h", []))
                 trend_1h = self._determine_trend_from_klines(klines.get("1h", []))
                 trend_4h = self._determine_trend_from_klines(klines.get("4h", []))
                 trend_1d = self._determine_trend_from_klines(klines.get("1d", []))
+                
+                # 1W trend - only if we have at least 4 weeks of data
+                klines_1w = klines.get("1w", [])
+                if len(klines_1w) >= 4:
+                    trend_1w = self._determine_trend_from_klines(klines_1w)
+                
                 is_ath, ath_price = self._check_ath(klines.get("1d", []), current_price)
+                
+                # Get funding rate from the same exchange
+                funding_rate = await self._fetch_funding_rate(symbol, data_source)
 
                 # Generate chart from 1H klines
                 klines_1h = klines.get("1h", [])
@@ -216,10 +229,13 @@ class PumpDetector:
                 current_price=current_price,
                 detected_at=datetime.now(timezone.utc),
                 rsi_1m=rsi_1m,
+                rsi_15m=rsi_15m,
                 rsi_1h=rsi_1h,
                 trend_1h=trend_1h,
                 trend_4h=trend_4h,
                 trend_1d=trend_1d,
+                trend_1w=trend_1w,
+                funding_rate=funding_rate,
                 is_ath=is_ath,
                 ath_price=ath_price,
                 links=links,
@@ -375,3 +391,29 @@ class PumpDetector:
         except (ValueError, TypeError) as e:
             logger.debug(f"ATH check error: {e}")
             return False, None
+
+    async def _fetch_funding_rate(
+        self,
+        symbol: str,
+        data_source: str,
+    ) -> float | None:
+        """Fetch funding rate from the specified exchange.
+        
+        Args:
+            symbol: MEXC-format symbol.
+            data_source: Exchange name that provided kline data.
+            
+        Returns:
+            Funding rate as percentage or None.
+        """
+        try:
+            if data_source == "Binance":
+                return await self._binance.get_funding_rate(symbol)
+            elif data_source == "ByBit":
+                return await self._bybit.get_funding_rate(symbol)
+            elif data_source == "BingX":
+                return await self._bingx.get_funding_rate(symbol)
+        except Exception as e:
+            logger.debug(f"Funding rate fetch error for {symbol}: {e}")
+        
+        return None

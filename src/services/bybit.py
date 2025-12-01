@@ -20,6 +20,7 @@ class ByBitClient:
         "1h": "60",
         "4h": "240",
         "1d": "D",
+        "1w": "W",
     }
 
     def __init__(self) -> None:
@@ -149,9 +150,11 @@ class ByBitClient:
         """Get klines for multiple timeframes concurrently."""
         intervals = {
             "1m": 30,
+            "15m": 30,
             "1h": 30,
             "4h": 25,
             "1d": 100,
+            "1w": 30,
         }
 
         tasks = {
@@ -165,6 +168,45 @@ class ByBitClient:
             name: result if isinstance(result, list) else []
             for name, result in zip(tasks.keys(), results)
         }
+
+    async def get_funding_rate(self, symbol: str) -> float | None:
+        """Get current funding rate for a symbol.
+
+        Args:
+            symbol: MEXC-format symbol (e.g., BTC_USDT).
+
+        Returns:
+            Funding rate as percentage or None.
+        """
+        if not self._client:
+            return None
+
+        bybit_symbol = self._convert_symbol(symbol)
+        if not bybit_symbol:
+            return None
+
+        try:
+            response = await self._client.get(
+                "/v5/market/tickers",
+                params={
+                    "category": "linear",
+                    "symbol": bybit_symbol,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("retCode") == 0:
+                tickers = data.get("result", {}).get("list", [])
+                if tickers:
+                    # ByBit returns funding rate as decimal
+                    rate = float(tickers[0].get("fundingRate", 0))
+                    return rate * 100  # Convert to percentage
+            return None
+
+        except Exception as e:
+            logger.debug(f"ByBit funding rate error for {symbol}: {e}")
+            return None
 
     def has_symbol(self, mexc_symbol: str) -> bool:
         """Check if a symbol is available on ByBit."""

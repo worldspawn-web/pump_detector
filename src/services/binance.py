@@ -132,9 +132,11 @@ class BinanceClient:
         """
         intervals = {
             "1m": ("1m", 30),
+            "15m": ("15m", 30),
             "1h": ("1h", 30),
             "4h": ("4h", 25),
             "1d": ("1d", 100),
+            "1w": ("1w", 30),  # 30 weeks for trend analysis
         }
 
         # Fetch all timeframes concurrently (Binance is fast!)
@@ -149,6 +151,43 @@ class BinanceClient:
             name: result if isinstance(result, list) else []
             for name, result in zip(tasks.keys(), results)
         }
+
+    async def get_funding_rate(self, symbol: str) -> float | None:
+        """Get current funding rate for a symbol.
+
+        Args:
+            symbol: MEXC-format symbol (e.g., BTC_USDT).
+
+        Returns:
+            Funding rate as percentage (e.g., 0.01 = 0.01%) or None.
+        """
+        if not self._client:
+            return None
+
+        binance_symbol = self._convert_symbol(symbol)
+        if not binance_symbol:
+            return None
+
+        try:
+            response = await self._client.get(
+                "/fapi/v1/fundingRate",
+                params={
+                    "symbol": binance_symbol,
+                    "limit": 1,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if data and len(data) > 0:
+                # Binance returns funding rate as decimal (0.0001 = 0.01%)
+                # Convert to percentage
+                return float(data[0].get("fundingRate", 0)) * 100
+            return None
+
+        except Exception as e:
+            logger.debug(f"Binance funding rate error for {symbol}: {e}")
+            return None
 
     def has_symbol(self, mexc_symbol: str) -> bool:
         """Check if a symbol is available on Binance.

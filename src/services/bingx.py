@@ -134,9 +134,11 @@ class BingXClient:
         """Get klines for multiple timeframes concurrently."""
         intervals = {
             "1m": ("1m", 30),
+            "15m": ("15m", 30),
             "1h": ("1h", 30),
             "4h": ("4h", 25),
             "1d": ("1d", 100),
+            "1w": ("1w", 30),
         }
 
         tasks = {
@@ -150,6 +152,40 @@ class BingXClient:
             name: result if isinstance(result, list) else []
             for name, result in zip(tasks.keys(), results)
         }
+
+    async def get_funding_rate(self, symbol: str) -> float | None:
+        """Get current funding rate for a symbol.
+
+        Args:
+            symbol: MEXC-format symbol (e.g., BTC_USDT).
+
+        Returns:
+            Funding rate as percentage or None.
+        """
+        if not self._client:
+            return None
+
+        bingx_symbol = self._convert_symbol(symbol)
+        if not bingx_symbol:
+            return None
+
+        try:
+            response = await self._client.get(
+                "/openApi/swap/v2/quote/premiumIndex",
+                params={"symbol": bingx_symbol},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("code") == 0 and data.get("data"):
+                # BingX returns funding rate as decimal
+                rate = float(data["data"].get("lastFundingRate", 0))
+                return rate * 100  # Convert to percentage
+            return None
+
+        except Exception as e:
+            logger.debug(f"BingX funding rate error for {symbol}: {e}")
+            return None
 
     def has_symbol(self, mexc_symbol: str) -> bool:
         """Check if a symbol is available on BingX."""
