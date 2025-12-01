@@ -191,21 +191,18 @@ class PumpSignal:
         h = self.reversal_history
 
         lines = [
-            f"<b>━━━ Reversal History ({h.total_pumps} pumps) ━━━</b>",
+            f"<b>━━━ Coin History ({h.total_pumps} pumps) ━━━</b>",
             "",
-            f"⏱️ Time to 50%: <b>{h.avg_time_to_50pct}</b> ({h.pct_hit_50pct:.0f}% hit)",
-            f"⏱️ Time to 100%: <b>{h.avg_time_to_100pct}</b> ({h.pct_full_reversal:.0f}% hit)",
-            f"📉 Max Drop: <b>-{h.avg_max_drop:.1f}%</b> avg",
-            f"🎯 Full Reversal: <b>{h.pct_full_reversal:.0f}%</b> of pumps",
+            f"📊 50% Retrace: <b>{h.pct_hit_50pct:.0f}%</b> success | Avg: <b>{h.avg_time_to_50pct}</b>",
+            f"🎯 Full Reversal: <b>{h.pct_full_reversal:.0f}%</b> success | Avg: <b>{h.avg_time_to_100pct}</b>",
         ]
 
-        # Last 5 results
+        # Last results (up to 5)
         if h.last_results:
             results_str = "".join("✅" if r else "❌" for r in h.last_results)
-            lines.append(f"📊 Last {len(h.last_results)}: {results_str}")
-
-        # Reliability
-        lines.append(f"{h.reliability_emoji} Reliability")
+            lines.append(
+                f"📈 Last {len(h.last_results)}: {results_str} {h.reliability_emoji}"
+            )
 
         return "\n".join(lines)
 
