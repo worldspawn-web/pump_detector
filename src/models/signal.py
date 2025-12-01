@@ -88,14 +88,14 @@ class PumpSignal:
         """Get emoji based on funding rate level."""
         if self.funding_rate is None:
             return "➖"
-        
+
         rate = abs(self.funding_rate)
         if rate >= 1.0:
             return "❗"  # Extreme funding
         elif rate >= 0.5:
             return "⚠️"  # High funding
         else:
-            return "✅"  # Normal funding
+            return ""  # Normal funding
 
     def format_message(self) -> str:
         """Format signal as a Telegram message."""
@@ -131,7 +131,7 @@ class PumpSignal:
             trend_1h_emoji = get_trend_emoji(self.trend_1h)
             trend_4h_emoji = get_trend_emoji(self.trend_4h)
             trend_1d_emoji = get_trend_emoji(self.trend_1d)
-            
+
             # Build trend line (include 1W only if data available)
             trend_parts = [
                 f"{trend_1h_emoji} 1H",
@@ -153,7 +153,9 @@ class PumpSignal:
             # Funding rate formatting
             if self.funding_rate is not None:
                 funding_emoji = self._get_funding_emoji()
-                lines.append(f"<b>Funding:</b> {funding_emoji} {self.funding_rate:+.4f}%")
+                lines.append(
+                    f"<b>Funding:</b> {self.funding_rate:+.4f}% {funding_emoji}"
+                )
 
             # ATH formatting
             if self.ath_price:
