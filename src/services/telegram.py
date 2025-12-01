@@ -108,24 +108,44 @@ class TelegramNotifier:
         
         return sent_count
 
-    async def send_startup_message(self) -> bool:
-        """Send a startup notification.
+    async def send_startup_message(self, auto_delete_seconds: int = 5) -> bool:
+        """Send a startup notification that auto-deletes.
+
+        Args:
+            auto_delete_seconds: Seconds before message is deleted.
 
         Returns:
             True if sent successfully, False otherwise.
         """
         try:
-            await self._bot.send_message(
+            message = await self._bot.send_message(
                 chat_id=self._chat_id,
                 text="🟢 <b>Pump Detector Started</b>\n\nMonitoring MEXC futures for pump anomalies...",
                 parse_mode=ParseMode.HTML,
                 link_preview_options=self._link_preview,
             )
+            
+            # Schedule deletion in background
+            asyncio.create_task(self._delete_after(message.message_id, auto_delete_seconds))
+            
             return True
 
         except Exception as e:
             logger.error(f"Failed to send startup message: {e}")
             return False
+
+    async def _delete_after(self, message_id: int, seconds: int) -> None:
+        """Delete a message after a delay.
+
+        Args:
+            message_id: ID of message to delete.
+            seconds: Delay before deletion.
+        """
+        try:
+            await asyncio.sleep(seconds)
+            await self._bot.delete_message(chat_id=self._chat_id, message_id=message_id)
+        except Exception as e:
+            logger.debug(f"Could not delete startup message: {e}")
 
     async def update_stats_message(self, stats_text: str, max_retries: int = 3) -> bool:
         """Update or create the pinned stats message.
