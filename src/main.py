@@ -94,7 +94,11 @@ async def run_scanner() -> None:
             logger.info("Connected to all exchange APIs")
 
             # Initialize tracker
-            tracker = PumpTracker(database, mexc_client)
+            tracker = PumpTracker(
+                database,
+                mexc_client,
+                monitoring_hours=settings.monitoring_hours,
+            )
             await tracker.load_active_pumps()
 
             # Initialize detector with tracker

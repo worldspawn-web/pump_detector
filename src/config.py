@@ -44,6 +44,20 @@ class Settings(BaseSettings):
         description="MEXC Futures API base URL",
     )
 
+    # Pump tracking settings
+    min_volume_usd: int = Field(
+        default=1_000_000,
+        description="Minimum 24h volume in USD to track a pump",
+    )
+    monitoring_hours: int = Field(
+        default=12,
+        description="Hours to monitor each pump for reversals",
+    )
+    min_pumps_for_history: int = Field(
+        default=1,
+        description="Minimum previous pumps to show coin history in signals",
+    )
+
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
 
@@ -52,4 +66,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
-

@@ -44,16 +44,13 @@ class PumpSignal:
     current_price: float
     detected_at: datetime
 
-    # RSI values
+    # RSI values (1M and 1H only)
     rsi_1m: float | None = None
-    rsi_15m: float | None = None
     rsi_1h: float | None = None
 
-    # Trend analysis
-    trend_1h: Trend = Trend.NEUTRAL
-    trend_4h: Trend = Trend.NEUTRAL
+    # Trend analysis (1D and 1W only)
     trend_1d: Trend = Trend.NEUTRAL
-    trend_1w: Trend | None = None  # None if not enough data
+    trend_1w: Trend | None = None  # None if not enough data (needs 4+ weeks)
 
     # Funding rate
     funding_rate: float | None = None
@@ -119,25 +116,17 @@ class PumpSignal:
         )
 
         if self.has_technical_data:
-            # RSI formatting
+            # RSI formatting (1M and 1H only)
             rsi_1m_text = f"{self.rsi_1m:.0f}" if self.rsi_1m is not None else "N/A"
-            rsi_15m_text = f"{self.rsi_15m:.0f}" if self.rsi_15m is not None else "N/A"
             rsi_1h_text = f"{self.rsi_1h:.0f}" if self.rsi_1h is not None else "N/A"
             rsi_1m_emoji = get_rsi_emoji(self.rsi_1m)
-            rsi_15m_emoji = get_rsi_emoji(self.rsi_15m)
             rsi_1h_emoji = get_rsi_emoji(self.rsi_1h)
 
-            # Trend formatting
-            trend_1h_emoji = get_trend_emoji(self.trend_1h)
-            trend_4h_emoji = get_trend_emoji(self.trend_4h)
+            # Trend formatting (1D and 1W only)
             trend_1d_emoji = get_trend_emoji(self.trend_1d)
 
             # Build trend line (include 1W only if data available)
-            trend_parts = [
-                f"{trend_1h_emoji} 1H",
-                f"{trend_4h_emoji} 4H",
-                f"{trend_1d_emoji} 1D",
-            ]
+            trend_parts = [f"{trend_1d_emoji} 1D"]
             if self.trend_1w is not None:
                 trend_1w_emoji = get_trend_emoji(self.trend_1w)
                 trend_parts.append(f"{trend_1w_emoji} 1W")
@@ -145,7 +134,7 @@ class PumpSignal:
             lines.extend(
                 [
                     "",
-                    f"<b>RSI:</b> {rsi_1m_emoji} 1M: {rsi_1m_text} | {rsi_15m_emoji} 15M: {rsi_15m_text} | {rsi_1h_emoji} 1H: {rsi_1h_text}",
+                    f"<b>RSI:</b> {rsi_1m_emoji} 1M: {rsi_1m_text} | {rsi_1h_emoji} 1H: {rsi_1h_text}",
                     f"<b>Trend:</b> {' | '.join(trend_parts)}",
                 ]
             )

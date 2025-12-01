@@ -132,11 +132,9 @@ class BinanceClient:
         """
         intervals = {
             "1m": ("1m", 30),
-            "15m": ("15m", 30),
             "1h": ("1h", 30),
-            "4h": ("4h", 25),
             "1d": ("1d", 100),
-            "1w": ("1w", 30),  # 30 weeks for trend analysis
+            "1w": ("1w", 8),  # 8 weeks for trend analysis (4 min, 8 optimal)
         }
 
         # Fetch all timeframes concurrently (Binance is fast!)

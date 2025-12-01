@@ -12,18 +12,22 @@ from src.services.mexc import MEXCClient
 class PumpTracker:
     """Tracks pump reversals and calculates statistics."""
     
-    # Monitoring duration in hours
-    MONITORING_HOURS = 12
-    
-    def __init__(self, database: Database, mexc_client: MEXCClient) -> None:
+    def __init__(
+        self,
+        database: Database,
+        mexc_client: MEXCClient,
+        monitoring_hours: int = 12,
+    ) -> None:
         """Initialize the tracker.
         
         Args:
             database: Database instance.
             mexc_client: MEXC client for fetching current prices.
+            monitoring_hours: Hours to monitor each pump for reversals.
         """
         self._db = database
         self._mexc = mexc_client
+        self._monitoring_hours = monitoring_hours
         self._active_pumps: dict[int, PumpRecord] = {}  # id -> record
         self._price_cache: dict[str, float] = {}  # symbol -> price
     
@@ -53,7 +57,7 @@ class PumpTracker:
         price_before_pump = price_at_detection / (1 + pump_percent / 100)
         
         now = datetime.now(timezone.utc)
-        monitoring_ends = now + timedelta(hours=self.MONITORING_HOURS)
+        monitoring_ends = now + timedelta(hours=self._monitoring_hours)
         
         record = PumpRecord(
             symbol=symbol,
@@ -169,19 +173,19 @@ class PumpTracker:
         
         return completed
     
-    async def get_coin_stats(self, symbol: str) -> CoinStats | None:
+    async def get_coin_stats(self, symbol: str, min_pumps: int = 1) -> CoinStats | None:
         """Get statistics for a specific coin.
         
         Args:
             symbol: Trading pair symbol.
+            min_pumps: Minimum number of previous pumps required.
             
         Returns:
             CoinStats or None if not enough data.
         """
         stats = await self._db.get_coin_stats(symbol)
         
-        # Require minimum 3 pumps for stats
-        if stats and stats.total_pumps >= 3:
+        if stats and stats.total_pumps >= min_pumps:
             return stats
         
         return None

@@ -22,6 +22,9 @@ class PumpDetector:
     # Number of 1H candles needed for chart
     # We fetch extra for indicator warmup (40) + display (60) = 100 visible after trim
     CHART_CANDLES = 140
+    
+    # Weeks of data needed for 1W trend (4 minimum, 8 optimal)
+    WEEKS_FOR_TREND = 8
 
     def __init__(
         self,
@@ -135,9 +138,6 @@ class PumpDetector:
 
         return signals, tickers
 
-    # Minimum 24h volume in USD to track a pump
-    MIN_VOLUME_USD = 1_000_000
-
     def _is_pump(self, ticker: dict) -> bool:
         """Check if ticker meets pump threshold and volume requirements."""
         try:
@@ -151,9 +151,9 @@ class PumpDetector:
             if price_change_percent < self._settings.pump_threshold_percent:
                 return False
             
-            # Check minimum volume
+            # Check minimum volume (from settings)
             volume_24h = float(ticker.get("volume24", 0))
-            if volume_24h < self.MIN_VOLUME_USD:
+            if volume_24h < self._settings.min_volume_usd:
                 return False
             
             return True
@@ -179,10 +179,7 @@ class PumpDetector:
 
             # Technical analysis data (default empty)
             rsi_1m = None
-            rsi_15m = None
             rsi_1h = None
-            trend_1h = Trend.NEUTRAL
-            trend_4h = Trend.NEUTRAL
             trend_1d = Trend.NEUTRAL
             trend_1w = None
             funding_rate = None
@@ -197,13 +194,10 @@ class PumpDetector:
             if klines_result:
                 data_source, klines = klines_result
                 rsi_1m = self._calculate_rsi_from_klines(klines.get("1m", []))
-                rsi_15m = self._calculate_rsi_from_klines(klines.get("15m", []))
                 rsi_1h = self._calculate_rsi_from_klines(klines.get("1h", []))
-                trend_1h = self._determine_trend_from_klines(klines.get("1h", []))
-                trend_4h = self._determine_trend_from_klines(klines.get("4h", []))
                 trend_1d = self._determine_trend_from_klines(klines.get("1d", []))
                 
-                # 1W trend - only if we have at least 4 weeks of data
+                # 1W trend - only if we have at least 4 weeks of data (8 optimal)
                 klines_1w = klines.get("1w", [])
                 if len(klines_1w) >= 4:
                     trend_1w = self._determine_trend_from_klines(klines_1w)
@@ -229,10 +223,7 @@ class PumpDetector:
                 current_price=current_price,
                 detected_at=datetime.now(timezone.utc),
                 rsi_1m=rsi_1m,
-                rsi_15m=rsi_15m,
                 rsi_1h=rsi_1h,
-                trend_1h=trend_1h,
-                trend_4h=trend_4h,
                 trend_1d=trend_1d,
                 trend_1w=trend_1w,
                 funding_rate=funding_rate,
@@ -253,7 +244,10 @@ class PumpDetector:
         if not self._tracker:
             return None
 
-        stats = await self._tracker.get_coin_stats(symbol)
+        stats = await self._tracker.get_coin_stats(
+            symbol,
+            min_pumps=self._settings.min_pumps_for_history,
+        )
         if not stats:
             return None
 

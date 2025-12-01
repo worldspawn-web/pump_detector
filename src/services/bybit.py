@@ -150,11 +150,9 @@ class ByBitClient:
         """Get klines for multiple timeframes concurrently."""
         intervals = {
             "1m": 30,
-            "15m": 30,
             "1h": 30,
-            "4h": 25,
             "1d": 100,
-            "1w": 30,
+            "1w": 8,  # 8 weeks for trend analysis (4 min, 8 optimal)
         }
 
         tasks = {
