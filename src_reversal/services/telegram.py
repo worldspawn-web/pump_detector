@@ -139,10 +139,14 @@ class TelegramService:
                         )
                         return True
                     except Exception as edit_err:
+                        err_str = str(edit_err).lower()
                         # Message might have been deleted, create new one
-                        if "message to edit not found" in str(edit_err).lower():
+                        if "message to edit not found" in err_str:
                             logger.warning("Stats message was deleted, creating new one...")
                             self._stats_message_id = None
+                        elif "message is not modified" in err_str:
+                            # Same content, nothing to do - this is fine
+                            return True
                         else:
                             raise
                 
