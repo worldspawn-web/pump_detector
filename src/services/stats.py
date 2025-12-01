@@ -72,8 +72,8 @@ class StatsFormatter:
                 ]
             )
 
-        # Top performers - only show if at least 5 coins have history
-        if stats.top_coins and len(stats.top_coins) >= 5:
+        # Top performers - show if at least 3 coins have history
+        if stats.top_coins and len(stats.top_coins) >= 3:
             lines.append("━━━ <b>Top Reversal Coins</b> ━━━")
             lines.append("")
             medals = ["🥇", "🥈", "🥉", "4.", "5."]

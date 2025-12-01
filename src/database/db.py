@@ -277,7 +277,7 @@ class Database:
         """, (today_start.isoformat(),))
         today = await cursor.fetchone()
         
-        # Top performers (min 3 pumps, sorted by 50% hit rate)
+        # Top performers (min 2 completed pumps, sorted by 50% hit rate)
         cursor = await self._conn.execute("""
             SELECT 
                 symbol,
@@ -287,14 +287,14 @@ class Database:
             FROM pump_records
             WHERE status != 'monitoring'
             GROUP BY symbol
-            HAVING total >= 3
+            HAVING total >= 2
             ORDER BY rate DESC
             LIMIT 5
         """)
         top_rows = await cursor.fetchall()
         top_coins = [(row["symbol"], row["rate"], row["total"]) for row in top_rows]
         
-        # Worst performers
+        # Worst performers (min 2 completed pumps)
         cursor = await self._conn.execute("""
             SELECT 
                 symbol,
@@ -304,7 +304,7 @@ class Database:
             FROM pump_records
             WHERE status != 'monitoring'
             GROUP BY symbol
-            HAVING total >= 3
+            HAVING total >= 2
             ORDER BY rate ASC
             LIMIT 3
         """)
