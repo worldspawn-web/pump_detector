@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🚀 MEXC Pump Detector</h1>
+  <h1 align="center">Pump Detector</h1>
   <p align="center">
     <strong>Real-time cryptocurrency pump detection bot with technical analysis & Telegram alerts</strong>
   </p>
@@ -17,7 +17,7 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🔍 **Real-time Scanning** | Monitors all MEXC futures pairs every 60 seconds |
+| 🔍 **Real-time Scanning** | Monitors all futures pairs every 60 seconds |
 | 📊 **Technical Analysis** | RSI, Trend detection, ATH analysis, Funding rates |
 | 📈 **Multi-Exchange Data** | Fetches TA from Binance, ByBit, BingX for accuracy |
 | 🖼️ **Chart Generation** | Candlestick charts with RSI, MACD, volume & support/resistance |
