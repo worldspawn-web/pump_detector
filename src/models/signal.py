@@ -52,6 +52,10 @@ class PumpSignal:
     trend_1d: Trend = Trend.NEUTRAL
     trend_1w: Trend | None = None  # None if not enough data (needs 4+ weeks)
 
+    # BTC trend (market context)
+    btc_trend_1d: Trend | None = None
+    btc_trend_1w: Trend | None = None
+
     # Funding rate
     funding_rate: float | None = None
 
@@ -131,6 +135,15 @@ class PumpSignal:
                 trend_1w_emoji = get_trend_emoji(self.trend_1w)
                 trend_parts.append(f"{trend_1w_emoji} 1W")
 
+            # BTC trend line
+            btc_trend_parts = []
+            if self.btc_trend_1d is not None:
+                btc_1d_emoji = get_trend_emoji(self.btc_trend_1d)
+                btc_trend_parts.append(f"{btc_1d_emoji} 1D")
+            if self.btc_trend_1w is not None:
+                btc_1w_emoji = get_trend_emoji(self.btc_trend_1w)
+                btc_trend_parts.append(f"{btc_1w_emoji} 1W")
+
             lines.extend(
                 [
                     "",
@@ -138,6 +151,10 @@ class PumpSignal:
                     f"<b>Trend:</b> {' | '.join(trend_parts)}",
                 ]
             )
+
+            # Add BTC trend if available
+            if btc_trend_parts:
+                lines.append(f"<b>BTC:</b> {' | '.join(btc_trend_parts)}")
 
             # Funding rate formatting
             if self.funding_rate is not None:

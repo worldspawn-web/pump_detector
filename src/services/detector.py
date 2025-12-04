@@ -53,6 +53,10 @@ class PumpDetector:
         self._tracker = tracker
         self._chart_generator = ChartGenerator()
         self._alerted_symbols: set[str] = set()
+        
+        # Cached BTC trend (refreshed every scan cycle)
+        self._btc_trend_1d: Trend | None = None
+        self._btc_trend_1w: Trend | None = None
 
     async def load_alerted_symbols(self) -> None:
         """Load currently monitored symbols from database to prevent duplicates on restart."""
@@ -113,6 +117,9 @@ class PumpDetector:
             return signals, tickers
 
         logger.info(f"Found {len(potential_pumps)} potential pump(s), analyzing...")
+
+        # Fetch BTC trend once for all signals in this cycle
+        await self._update_btc_trend()
 
         # Second pass: perform detailed analysis on pumps
         for ticker in potential_pumps:
@@ -226,6 +233,8 @@ class PumpDetector:
                 rsi_1h=rsi_1h,
                 trend_1d=trend_1d,
                 trend_1w=trend_1w,
+                btc_trend_1d=self._btc_trend_1d,
+                btc_trend_1w=self._btc_trend_1w,
                 funding_rate=funding_rate,
                 is_ath=is_ath,
                 ath_price=ath_price,
@@ -278,6 +287,36 @@ class PumpDetector:
             links.bingx = BingXClient.get_futures_url(symbol)
 
         return links
+
+    async def _update_btc_trend(self) -> None:
+        """Fetch BTC klines and update cached BTC trend.
+        
+        Uses Binance as BTC is always available there.
+        """
+        try:
+            btc_symbol = "BTCUSDT"
+            
+            # Fetch 1D and 1W klines for BTC
+            klines_1d = await self._binance.get_klines(btc_symbol, "1d", 100)
+            klines_1w = await self._binance.get_klines(btc_symbol, "1w", 8)
+            
+            # Calculate trends
+            if klines_1d and len(klines_1d) >= 20:
+                self._btc_trend_1d = self._determine_trend_from_klines(klines_1d)
+            else:
+                self._btc_trend_1d = None
+                
+            if klines_1w and len(klines_1w) >= 4:
+                self._btc_trend_1w = self._determine_trend_from_klines(klines_1w)
+            else:
+                self._btc_trend_1w = None
+                
+            logger.debug(f"BTC trend updated: 1D={self._btc_trend_1d}, 1W={self._btc_trend_1w}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch BTC trend: {e}")
+            self._btc_trend_1d = None
+            self._btc_trend_1w = None
 
     async def _fetch_klines_from_any_exchange(
         self,
