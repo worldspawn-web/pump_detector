@@ -127,9 +127,9 @@ async def run_scanner() -> None:
                     signals, tickers = await detector.scan_for_pumps()
 
                     if signals:
-                        logger.info(f"Found {len(signals)} pump(s)!")
+                        logger.info(f"[MAIN] Found {len(signals)} pump(s)!")
                         sent = await telegram.send_signals(signals)
-                        logger.info(f"Sent {sent}/{len(signals)} alerts")
+                        logger.info(f"[MAIN] Sent {sent}/{len(signals)} alerts")
                     else:
                         logger.debug("No pumps detected in this cycle")
 
@@ -137,7 +137,7 @@ async def run_scanner() -> None:
                     if tracker.active_count > 0:
                         completed = await tracker.check_active_pumps()
                         if completed:
-                            logger.info(f"Completed monitoring for {len(completed)} pump(s)")
+                            logger.info(f"[MAIN] Completed monitoring for {len(completed)} pump(s)")
                             # Allow these coins to be alerted again if they pump
                             detector.remove_completed_alerts([p.symbol for p in completed])
 
