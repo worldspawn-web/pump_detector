@@ -76,19 +76,16 @@ class StatsFormatter:
         if stats.top_coins and len(stats.top_coins) >= 3:
             lines.append("━━━ <b>Top Reversal Coins</b> ━━━")
             lines.append("")
-            medals = ["🥇", "🥈", "🥉", "4.", "5."]
-            for i, (symbol, rate, count) in enumerate(stats.top_coins[:5]):
+            for i, (symbol, rate, count) in enumerate(stats.top_coins[:5], start=1):
                 coin_name = symbol.replace("_USDT", "")
-                lines.append(
-                    f"{medals[i]} {coin_name} - <b>{rate:.0f}%</b> ({count} pumps)"
-                )
+                lines.append(f"{i}. {coin_name} - <b>{rate:.0f}%</b> ({count} pumps)")
             lines.append("")
 
         # Worst performers
         if stats.worst_coins:
             lines.append("━━━ <b>Avoid These</b> ━━━")
             lines.append("")
-            for symbol, rate, count in stats.worst_coins[:3]:
+            for i, (symbol, rate, count) in enumerate(stats.worst_coins[:3], start=1):
                 coin_name = symbol.replace("_USDT", "")
                 lines.append(f"⚠️ {coin_name} - <b>{rate:.0f}%</b> ({count} pumps)")
             lines.append("")

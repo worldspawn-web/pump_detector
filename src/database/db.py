@@ -277,35 +277,35 @@ class Database:
         """, (today_start.isoformat(),))
         today = await cursor.fetchone()
         
-        # Top performers (min 2 completed pumps, sorted by 50% hit rate)
+        # Top performers (min 2 completed pumps, sorted by FULL REVERSAL rate)
         cursor = await self._conn.execute("""
             SELECT 
                 symbol,
                 COUNT(*) as total,
-                SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50,
-                CAST(SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as rate
+                SUM(CASE WHEN returned_to_prepump = 1 THEN 1 ELSE 0 END) as full_reversals,
+                CAST(SUM(CASE WHEN returned_to_prepump = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as rate
             FROM pump_records
             WHERE status != 'monitoring'
             GROUP BY symbol
             HAVING total >= 2
-            ORDER BY rate DESC
+            ORDER BY rate DESC, total DESC
             LIMIT 5
         """)
         top_rows = await cursor.fetchall()
         top_coins = [(row["symbol"], row["rate"], row["total"]) for row in top_rows]
         
-        # Worst performers (min 2 completed pumps)
+        # Worst performers (min 2 completed pumps, sorted by FULL REVERSAL rate)
         cursor = await self._conn.execute("""
             SELECT 
                 symbol,
                 COUNT(*) as total,
-                SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) as hit_50,
-                CAST(SUM(CASE WHEN time_to_50pct_retrace IS NOT NULL THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as rate
+                SUM(CASE WHEN returned_to_prepump = 1 THEN 1 ELSE 0 END) as full_reversals,
+                CAST(SUM(CASE WHEN returned_to_prepump = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as rate
             FROM pump_records
             WHERE status != 'monitoring'
             GROUP BY symbol
             HAVING total >= 2
-            ORDER BY rate ASC
+            ORDER BY rate ASC, total DESC
             LIMIT 3
         """)
         worst_rows = await cursor.fetchall()
