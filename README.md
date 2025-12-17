@@ -13,6 +13,15 @@
 
 ---
 
+### Try the bots for free:
+
+- [Pump Tracker 7%+ (Telegram)](https://t.me/+Lo7lJISTvo5iMWE6)
+- [Core Pumps Tracker 4%+ (Telegram)](https://t.me/+EkA3MWC_taUxMWMy)
+
+> ⚠️ Please, note, that sometimes the bots may be offline!
+
+---
+
 ## 🎯 Two Detection Modes
 
 This bot features **two independent detectors** that can run separately or together:
