@@ -52,7 +52,8 @@ def calculate_rsi(closes: list[float], period: int = 14) -> float | None:
 def determine_trend(closes: list[float]) -> Trend:
     """Determine trend direction from price data.
 
-    Uses simple moving average comparison and price position.
+    Uses simple moving average comparison as primary indicator.
+    More lenient to handle temporary price bounces/dips.
 
     Args:
         closes: List of closing prices (oldest to newest).
@@ -69,11 +70,42 @@ def determine_trend(closes: list[float]) -> Trend:
 
     current_price = closes[-1]
 
-    # Trend logic
-    if sma_short > sma_long and current_price > sma_short:
-        return Trend.BULLISH
-    elif sma_short < sma_long and current_price < sma_short:
-        return Trend.BEARISH
+    # Calculate the percentage difference between SMAs
+    sma_diff_pct = abs((sma_short - sma_long) / sma_long) * 100
+
+    # Strong trend threshold (2% difference between SMAs)
+    strong_trend_threshold = 2.0
+    
+    # Weak trend threshold (0.5% difference between SMAs)
+    weak_trend_threshold = 0.5
+
+    # Primary trend detection based on SMA relationship
+    if sma_short > sma_long:
+        # Bullish SMA setup
+        if sma_diff_pct >= strong_trend_threshold:
+            # Strong bullish trend - don't require price above SMA
+            return Trend.BULLISH
+        elif sma_diff_pct >= weak_trend_threshold:
+            # Weak bullish trend - check price confirmation
+            if current_price > sma_long:
+                return Trend.BULLISH
+            else:
+                return Trend.NEUTRAL
+        else:
+            return Trend.NEUTRAL
+    elif sma_short < sma_long:
+        # Bearish SMA setup
+        if sma_diff_pct >= strong_trend_threshold:
+            # Strong bearish trend - don't require price below SMA
+            return Trend.BEARISH
+        elif sma_diff_pct >= weak_trend_threshold:
+            # Weak bearish trend - check price confirmation
+            if current_price < sma_long:
+                return Trend.BEARISH
+            else:
+                return Trend.NEUTRAL
+        else:
+            return Trend.NEUTRAL
     else:
         return Trend.NEUTRAL
 
