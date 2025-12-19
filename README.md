@@ -41,8 +41,8 @@ This bot features **three independent detectors** that can run separately or tog
 - Sends to separate Telegram channel
 
 ### ⚡ Anomaly Detector
-- Detects **ultra-fast single-candle pumps** (perfect for reversal trading)
-- Requires **volume spike** (5x average) + **price spike** (3x average body)
+- Detects **7%+ pump in single 5-minute candle** (perfect for reversal trading)
+- Requires **volume spike** (5x average) + **candle body spike** (3x average)
 - Full reversal tracking & statistics
 - Scans all exchanges
 - Sends to separate Telegram channel
@@ -56,7 +56,7 @@ This bot features **three independent detectors** that can run separately or tog
 | Feature | Main Detector | Core Detector | Anomaly Detector |
 |---------|--------------|---------------|------------------|
 | 🔍 **Real-time Scanning** | All available futures coins | Watchlist only | All available futures coins |
-| ⚡ **Detection Criteria** | 7%+ pump, $5M+ vol | 5%+ pump, $500K+ vol | 7%+ pump + 5x volume + 3x body |
+| ⚡ **Detection Criteria** | 7%+ pump, $5M+ vol | 5%+ pump, $500K+ vol | 7%+ in single 5M candle + 5x vol + 3x body |
 | 📊 **Technical Analysis** | RSI, Trend, ATH, Funding | RSI, Trend, ATH, Funding | RSI, Trend, ATH, Funding |
 | 📈 **Multi-Exchange Data** | Binance, ByBit, BingX | Binance | Binance, ByBit, BingX |
 | 🖼️ **Chart Generation** | ✅ Candlestick charts | ✅ Candlestick charts | ✅ Candlestick charts |
@@ -186,8 +186,8 @@ ANOMALY_MIN_VOLUME_SPIKE=5.0
 # Minimum candle body multiplier (default: 3.0 = 3x average)
 ANOMALY_MIN_CANDLE_BODY=3.0
 
-# Minimum pump percentage in single candle (default: 5.0%)
-ANOMALY_MIN_PUMP_PERCENT=5.0
+# Minimum pump percentage in single 5M candle (default: 7.0%)
+ANOMALY_MIN_PUMP_PERCENT=7.0
 
 # Hours to monitor anomaly pumps (default: 48)
 MONITORING_HOURS=48
@@ -246,7 +246,7 @@ BNB
 | `ANOMALY_TELEGRAM_CHAT_ID` | **required** | Anomaly channel ID (separate) |
 | `ANOMALY_MIN_VOLUME_SPIKE` | `5.0` | Volume spike multiplier (5x average) |
 | `ANOMALY_MIN_CANDLE_BODY` | `3.0` | Candle body spike multiplier (3x average) |
-| `ANOMALY_MIN_PUMP_PERCENT` | `5.0` | Minimum pump % in single 1H candle |
+| `ANOMALY_MIN_PUMP_PERCENT` | `7.0` | Minimum pump % in single 5M candle |
 
 ### General Settings
 
@@ -287,7 +287,7 @@ Monitors only watchlist coins with lower thresholds (5%+ pump, $500K+ volume).
 ```bash
 python run_anomaly.py
 ```
-Monitors all futures pairs for ultra-fast anomaly pumps (volume spike + price spike).
+Monitors all futures pairs for ultra-fast anomaly pumps (7%+ in single 5M candle).
 
 ### What happens on startup
 
@@ -309,7 +309,7 @@ Monitors all futures pairs for ultra-fast anomaly pumps (volume spike + price sp
 1. **Initializes** connections to all exchanges
 2. **Loads** active pumps from database (survives restarts)
 3. **Creates/updates** pinned statistics message
-4. **Starts** scanning for volume + price spikes
+4. **Starts** scanning for 7%+ pumps in single 5M candles
 5. **Tracks** reversals for 48h (same as main detector)
 
 ---
