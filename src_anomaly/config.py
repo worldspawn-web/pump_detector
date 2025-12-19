@@ -30,8 +30,8 @@ class AnomalySettings(BaseSettings):
         description="Minimum candle body size multiplier (e.g., 3.0 = 3x average body)",
     )
     anomaly_min_pump_percent: float = Field(
-        default=5.0,
-        description="Minimum pump percentage in single candle",
+        default=7.0,
+        description="Minimum pump percentage in single 5M candle",
     )
 
     # Scan settings

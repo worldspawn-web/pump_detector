@@ -45,9 +45,9 @@ async def run_scanner() -> None:
     setup_logging(settings.log_level)
 
     logger.info("Starting Anomaly Pump Detector...")
-    logger.info(f"Volume spike threshold: {settings.anomaly_min_volume_spike}x")
-    logger.info(f"Candle body threshold: {settings.anomaly_min_candle_body}x")
-    logger.info(f"Min pump in candle: {settings.anomaly_min_pump_percent}%")
+    logger.info(f"Detection: {settings.anomaly_min_pump_percent}%+ in single 5M candle")
+    logger.info(f"Volume spike threshold: {settings.anomaly_min_volume_spike}x average")
+    logger.info(f"Candle body threshold: {settings.anomaly_min_candle_body}x average")
     logger.info(f"Scan interval: {settings.scan_interval_seconds}s")
 
     # Initialize database with anomaly-specific path

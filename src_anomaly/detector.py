@@ -25,8 +25,8 @@ class AnomalyPumpDetector:
     # Weeks of data needed for 1W trend
     WEEKS_FOR_TREND = 8
     
-    # Number of candles to analyze for anomaly detection
-    ANOMALY_LOOKBACK_CANDLES = 24
+    # Number of 5M candles to analyze for anomaly detection (100 = ~8 hours)
+    ANOMALY_LOOKBACK_CANDLES = 100
 
     def __init__(
         self,
@@ -146,7 +146,7 @@ class AnomalyPumpDetector:
         return signals, tickers
 
     async def _is_anomaly_pump(self, ticker: dict) -> bool:
-        """Check if ticker is an anomaly pump (volume spike + price spike in single candle).
+        """Check if ticker is an anomaly pump (7%+ in single 5M candle + volume/body spike).
         
         Args:
             ticker: MEXC ticker data.
@@ -156,25 +156,15 @@ class AnomalyPumpDetector:
         """
         try:
             symbol = ticker.get("symbol", "")
-            
-            # Check basic pump threshold first
-            rise_fall_rate = ticker.get("riseFallRate")
-            if rise_fall_rate is None:
-                return False
 
-            price_change_percent = float(rise_fall_rate) * 100
-            
-            if price_change_percent < self._settings.anomaly_min_pump_percent:
-                return False
-
-            # Fetch recent 1H candles to check for anomaly
+            # Fetch recent 5M candles to check for anomaly
             klines = await self._fetch_klines_for_anomaly_check(symbol)
             
             if not klines or len(klines) < self.ANOMALY_LOOKBACK_CANDLES + 1:
-                logger.debug(f"[ANOMALY] Not enough candles for {symbol} anomaly check")
+                logger.debug(f"[ANOMALY] Not enough 5M candles for {symbol} anomaly check")
                 return False
 
-            # Check for volume and candle body anomaly
+            # Check for single-candle pump + volume/body anomaly
             return self._check_anomaly_conditions(klines)
 
         except Exception as e:
@@ -182,7 +172,7 @@ class AnomalyPumpDetector:
             return False
 
     async def _fetch_klines_for_anomaly_check(self, symbol: str) -> list[dict] | None:
-        """Fetch recent 1H candles for anomaly detection.
+        """Fetch recent 5M candles for anomaly detection.
         
         Args:
             symbol: Symbol to fetch.
@@ -193,17 +183,17 @@ class AnomalyPumpDetector:
         # Try exchanges in priority order
         for client in [self._binance, self._bybit, self._bingx]:
             if client.has_symbol(symbol):
-                klines = await client.get_klines(symbol, "1h", self.ANOMALY_LOOKBACK_CANDLES + 1)
+                klines = await client.get_klines(symbol, "5m", self.ANOMALY_LOOKBACK_CANDLES + 1)
                 if klines:
                     return klines
         
         return None
 
     def _check_anomaly_conditions(self, klines: list[dict]) -> bool:
-        """Check if current candle is an anomaly compared to recent candles.
+        """Check if current 5M candle is an anomaly (7%+ pump + volume/body spike).
         
         Args:
-            klines: List of kline data (oldest to newest).
+            klines: List of 5M kline data (oldest to newest).
             
         Returns:
             True if anomaly conditions are met.
@@ -216,10 +206,20 @@ class AnomalyPumpDetector:
             historical_candles = klines[:-1]
             
             # Extract current candle data
-            current_volume = float(current_candle.get("volume", 0))
             current_open = float(current_candle.get("open", 0))
             current_close = float(current_candle.get("close", 0))
+            current_volume = float(current_candle.get("volume", 0))
             current_body = abs(current_close - current_open)
+            
+            # Calculate pump percentage in this single 5M candle
+            if current_open == 0:
+                return False
+            
+            candle_pump_percent = ((current_close - current_open) / current_open) * 100
+            
+            # Check if 7%+ pump in single 5M candle
+            if candle_pump_percent < self._settings.anomaly_min_pump_percent:
+                return False
             
             # Calculate averages from historical candles
             historical_volumes = [float(k.get("volume", 0)) for k in historical_candles]
@@ -239,13 +239,14 @@ class AnomalyPumpDetector:
             volume_spike_ratio = current_volume / avg_volume
             body_spike_ratio = current_body / avg_body
             
-            # Check if both conditions are met
+            # Check if volume and body spike conditions are met
             volume_condition = volume_spike_ratio >= self._settings.anomaly_min_volume_spike
             body_condition = body_spike_ratio >= self._settings.anomaly_min_candle_body
             
             if volume_condition and body_condition:
-                logger.debug(
-                    f"[ANOMALY] Spike detected: volume {volume_spike_ratio:.1f}x, body {body_spike_ratio:.1f}x"
+                logger.info(
+                    f"[ANOMALY] Anomaly detected: {candle_pump_percent:.1f}% in 5M candle | "
+                    f"volume {volume_spike_ratio:.1f}x | body {body_spike_ratio:.1f}x"
                 )
                 return True
             
