@@ -46,6 +46,7 @@ async def run_scanner() -> None:
 
     logger.info("Starting Anomaly Pump Detector...")
     logger.info(f"Detection: {settings.anomaly_min_pump_percent}%+ in single 5M candle")
+    logger.info(f"Min 24h volume: ${settings.anomaly_min_volume_usd:,}")
     logger.info(f"Volume spike threshold: {settings.anomaly_min_volume_spike}x average")
     logger.info(f"Candle body threshold: {settings.anomaly_min_candle_body}x average")
     logger.info(f"Scan interval: {settings.scan_interval_seconds}s")

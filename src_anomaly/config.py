@@ -18,9 +18,15 @@ class AnomalySettings(BaseSettings):
 
     # Telegram configuration
     telegram_bot_token: str = Field(..., description="Telegram bot token")
-    anomaly_telegram_chat_id: str = Field(..., description="Anomaly detector Telegram chat/channel ID")
+    anomaly_telegram_chat_id: str = Field(
+        ..., description="Anomaly detector Telegram chat/channel ID"
+    )
 
     # Anomaly detection criteria
+    anomaly_min_volume_usd: int = Field(
+        default=5_000_000,
+        description="Minimum 24h volume in USD to consider an anomaly",
+    )
     anomaly_min_volume_spike: float = Field(
         default=5.0,
         description="Minimum volume spike multiplier (e.g., 5.0 = 5x average volume)",
@@ -64,4 +70,3 @@ class AnomalySettings(BaseSettings):
 def get_anomaly_settings() -> AnomalySettings:
     """Get cached anomaly settings instance."""
     return AnomalySettings()
-

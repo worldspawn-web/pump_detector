@@ -156,6 +156,11 @@ class AnomalyPumpDetector:
         """
         try:
             symbol = ticker.get("symbol", "")
+            
+            # Check minimum 24h volume requirement first
+            volume_24h = float(ticker.get("volume24", 0))
+            if volume_24h < self._settings.anomaly_min_volume_usd:
+                return False
 
             # Fetch recent 5M candles to check for anomaly
             klines = await self._fetch_klines_for_anomaly_check(symbol)

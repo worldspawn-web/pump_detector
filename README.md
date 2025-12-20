@@ -56,7 +56,7 @@ This bot features **three independent detectors** that can run separately or tog
 | Feature | Main Detector | Core Detector | Anomaly Detector |
 |---------|--------------|---------------|------------------|
 | 🔍 **Real-time Scanning** | All available futures coins | Watchlist only | All available futures coins |
-| ⚡ **Detection Criteria** | 7%+ pump, $5M+ vol | 5%+ pump, $500K+ vol | 7%+ in single 5M candle + 5x vol + 3x body |
+| ⚡ **Detection Criteria** | 7%+ pump, $5M+ vol | 5%+ pump, $500K+ vol | 7%+ in 5M candle, $5M+ vol, 5x spike, 3x body |
 | 📊 **Technical Analysis** | RSI, Trend, ATH, Funding | RSI, Trend, ATH, Funding | RSI, Trend, ATH, Funding |
 | 📈 **Multi-Exchange Data** | Binance, ByBit, BingX | Binance | Binance, ByBit, BingX |
 | 🖼️ **Chart Generation** | ✅ Candlestick charts | ✅ Candlestick charts | ✅ Candlestick charts |
@@ -180,6 +180,9 @@ WATCHLIST_FILE=watchlist.txt
 # ═══════════════════════════════════════════════════════════════
 # ANOMALY DETECTOR SETTINGS (Ultra-fast pumps)
 # ═══════════════════════════════════════════════════════════════
+# Minimum 24h volume in USD (default: 1000000 = $1M)
+ANOMALY_MIN_VOLUME_USD=5000000
+
 # Minimum volume spike multiplier (default: 5.0 = 5x average)
 ANOMALY_MIN_VOLUME_SPIKE=5.0
 
@@ -244,6 +247,7 @@ BNB
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANOMALY_TELEGRAM_CHAT_ID` | **required** | Anomaly channel ID (separate) |
+| `ANOMALY_MIN_VOLUME_USD` | `5000000` | Minimum 24h volume requirement ($1M) |
 | `ANOMALY_MIN_VOLUME_SPIKE` | `5.0` | Volume spike multiplier (5x average) |
 | `ANOMALY_MIN_CANDLE_BODY` | `3.0` | Candle body spike multiplier (3x average) |
 | `ANOMALY_MIN_PUMP_PERCENT` | `7.0` | Minimum pump % in single 5M candle |
